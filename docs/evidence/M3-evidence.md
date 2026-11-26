@@ -16,7 +16,7 @@ Application manifest: `it-helpdesk` **1.1.0** (upgrade of 1.0.0). ESM commit: se
 | ESM has no Java/DB dependency on the Platform | App sources (`bff/src`, `web/src`, `manifests`, `e2e`) contain no `com.tricore`, `jdbc:`, `postgres://`. The only DB-touching file is `deploy/db-snapshot.sh`, an operator evidence script. |
 | ESM talks only to published APIs | The BFF proxies only the 8 route shapes of `docs/api/openapi-v1.json`, fixed to app `it-helpdesk` (`bff/src/routes.ts`, tests in `bff/test/app.test.ts`). |
 | Platform runs without ESM | The acceptance stack (`opentrix-esm`) runs PostgreSQL, Keycloak, Platform backend and the HTTPS ingress only. ESM is a separate host process; the legacy Portal and Portal BFF were never started (`deploy/compose.esm.yml` removes the ingress dependency on them). |
-| ESM builds independently | Own `package.json`/lockfiles, `npm ci && build && test` in `bff/` and `web/`; clean-clone build verified (section 7). |
+| ESM builds independently | Own `package.json`/lockfiles, `npm ci && build && test` in `bff/` and `web/`; clean-clone build verified (section 4a). |
 
 Manifest placement: the 1.1.0 manifest lives in **this** repository (`manifests/`) and is deployed through the Platform's
 documented controlled step (`platform-migrate` with `PLATFORM_MANIFEST_DIR`). `apps/it-helpdesk/app.json` (1.0.0) in the
@@ -100,6 +100,13 @@ answering 502/504 to a write was passed through as a plain error — it is now `
 assertions (random CSRF token containing `eyJ`; debounce race in the pagination spec) were corrected, not ignored.
 
 Skipped: exactly the three listed above; nothing else is skipped or retried (`retries: 0`, `flaky: 0`).
+
+### 4a. Clean clone
+
+`git clone` of the local ESM repository into a temp directory (no `.local`, no `node_modules`): `npm ci --ignore-scripts`,
+`typecheck`, `test` (BFF 21/21, web 30/30) and `build` succeed in `bff/` and `web/`; the secret scan passes on the clone.
+Manifest bytes survive the commit (`sha256` `fc97b12b…` for 1.1.0 and `2c577314…` for the 1.0.0 fixture, equal to the registered hashes);
+`.gitattributes` forces LF so the hashes do not depend on the checkout platform.
 
 ## 5. Screenshots (`screenshots/`, taken during the real runs, no credentials on screen)
 
