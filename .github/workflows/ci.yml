@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
+# SPDX-License-Identifier: Apache-2.0
+# Unit/integration tests and builds. The Playwright suite needs the Platform stack and is run locally (docs/DEVELOPMENT.md).
+name: ci
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        part: [bff, web]
+    defaults:
+      run:
+        working-directory: ${{ matrix.part }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.part }}/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+  secrets-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/scan-secrets.mjs

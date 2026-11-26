@@ -1,0 +1,12 @@
+REJECTED  agent-gets-create: Incompatible manifest it-helpdesk/ticket: grant broadened for role agent
+REJECTED  requester-reads-all: Incompatible manifest it-helpdesk/ticket: grant broadened for role requester
+REJECTED  category-field-changed: Incompatible manifest it-helpdesk/category: existing field definition changed: name
+REJECTED  ticket-field-changed: Incompatible manifest it-helpdesk/ticket: existing field definition changed: title
+REJECTED  ticket-required-added: Incompatible manifest it-helpdesk/ticket: required fields changed
+REJECTED  transition-removed: Incompatible manifest it-helpdesk/ticket: existing workflow states and transitions must be retained unchanged
+REJECTED  notbycreator-dropped: Incompatible manifest it-helpdesk/ticket: workflow policy broadened
+REJECTED  role-removed: non-zero exit 1
+REJECTED  entity-removed: Incompatible manifest it-helpdesk: existing roles and entities must be retained
+--- active version after all attempts:
+it-helpdesk 1.1.0
+versions: 1.0.0,1.1.0

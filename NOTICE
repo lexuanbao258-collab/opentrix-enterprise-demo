@@ -1,0 +1,19 @@
+OpenTrix ESM
+Copyright 2026 OpenTrix ESM contributors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This application is a client of the OpenTrix Platform public API
+(https://github.com/lexuanbao258-collab/opentrix-v1-candidate, Apache-2.0,
+"TRICORE contributors"). No Platform source code is copied into this repository.
+
+Reused from the OpenTrix Platform candidate, retaining attribution:
+ - apps/it-helpdesk/app.json (manifest 1.0.0, Apache-2.0, TRICORE contributors) is the basis of
+   manifests/it-helpdesk/app.json (1.1.0). The `category` entity is carried over unchanged;
+   deploy/fixtures/manifests-1.0.0/it-helpdesk/app.json is a byte copy of the 1.0.0 file used by the upgrade test.
+ - Patterns (not code) from the Platform Portal BFF: server-side OIDC sessions, CSRF, explicit route allowlist,
+   and the Platform client conventions (expectedVersion, COMMIT_OUTCOME_UNKNOWN handling).
+ - Font "Be Vietnam Pro" (@fontsource/be-vietnam-pro, SIL Open Font License 1.1), as in the Platform Portal.
+
+Third-party npm packages are listed in THIRD-PARTY-NOTICES.md. Hallmark/Impeccable design skills were not
+installed in the authoring environment; no third-party design assets are included.

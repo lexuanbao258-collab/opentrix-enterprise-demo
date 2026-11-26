@@ -1,0 +1,7 @@
+Platform repo HEAD: f401b6e79930a1386e71e92a91ae6a909cfa1e59
+Baseline:          f401b6e79930a1386e71e92a91ae6a909cfa1e59
+git status --porcelain (empty = clean):
+git diff --stat f401b6e -- backend portal-bff frontend apps infra clients (runtime source, schema, API, deployment):
+(end)
+diff -r baseline-archive vs exported stack checkout used for acceptance:
+IDENTICAL

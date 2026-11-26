@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Overlay for the OpenTrix Platform demo stack (compose.demo.yml of the Platform baseline).
+# It changes deployment configuration only: which manifest directory the controlled
+# `platform-migrate` step registers, and it lets the ingress start without the legacy Portal BFF.
+services:
+  platform-migrate:
+    volumes:
+      - ${ESM_MANIFEST_DIR:?set ESM_MANIFEST_DIR}:/apps:ro
+  ingress:
+    depends_on: !reset []

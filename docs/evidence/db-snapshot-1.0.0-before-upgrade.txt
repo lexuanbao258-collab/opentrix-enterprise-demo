@@ -1,0 +1,14 @@
+-- applications (app_key|version|sha256-prefix)
+it-helpdesk|1.0.0|2c5773144274
+-- application_versions
+it-helpdesk|1.0.0
+-- schema history
+1|t
+2|t
+3|t
+-- records per entity (count|md5 of id,version,data)
+category|4|3250486f4049c5c8f67ff9ef5dc3b2e7
+-- audit events per entity
+category|5
+-- entity definitions
+it-helpdesk|category

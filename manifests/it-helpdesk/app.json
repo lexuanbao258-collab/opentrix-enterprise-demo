@@ -1,0 +1,295 @@
+{
+  "id": "it-helpdesk",
+  "version": "1.1.0",
+  "license": "Apache-2.0",
+  "name": {
+    "en": "IT Helpdesk",
+    "vi": "Hỗ trợ CNTT"
+  },
+  "description": {
+    "en": "Internal IT support: service category catalog and support tickets with a role-based workflow.",
+    "vi": "Hỗ trợ CNTT nội bộ: danh mục dịch vụ và phiếu hỗ trợ với quy trình theo vai trò."
+  },
+  "roles": {
+    "admin": {
+      "name": {
+        "en": "Helpdesk administrator",
+        "vi": "Quản trị Helpdesk"
+      }
+    },
+    "agent": {
+      "name": {
+        "en": "Support agent",
+        "vi": "Kỹ thuật viên"
+      }
+    },
+    "requester": {
+      "name": {
+        "en": "Requester",
+        "vi": "Người yêu cầu"
+      }
+    }
+  },
+  "entities": {
+    "category": {
+      "name": {
+        "en": "Service category",
+        "vi": "Danh mục dịch vụ"
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "name",
+          "active"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
+            "maxLength": 32
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "maxLength": 2000
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        }
+      },
+      "search": [
+        "code",
+        "name"
+      ],
+      "permissions": {
+        "read": {
+          "admin": "all",
+          "agent": "all",
+          "requester": "all"
+        },
+        "create": {
+          "admin": "all"
+        },
+        "update": {
+          "admin": "all"
+        },
+        "delete": {
+          "admin": "all"
+        }
+      }
+    },
+    "ticket": {
+      "name": {
+        "en": "Support ticket",
+        "vi": "Phiếu hỗ trợ"
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "description",
+          "categoryCode",
+          "priority"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "minLength": 1,
+            "maxLength": 4000,
+            "sensitive": true
+          },
+          "categoryCode": {
+            "type": "string",
+            "title": "Category code",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$",
+            "maxLength": 32
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority",
+            "enum": [
+              "LOW",
+              "NORMAL",
+              "HIGH",
+              "URGENT"
+            ]
+          }
+        }
+      },
+      "search": [
+        "title",
+        "description",
+        "categoryCode"
+      ],
+      "permissions": {
+        "read": {
+          "requester": "own",
+          "agent": "all",
+          "admin": "all"
+        },
+        "create": {
+          "requester": "own"
+        },
+        "update": {
+          "requester": "own"
+        },
+        "delete": {
+          "requester": "own"
+        },
+        "audit": {
+          "admin": "all"
+        }
+      },
+      "workflow": {
+        "initialState": "DRAFT",
+        "states": {
+          "DRAFT": {
+            "name": {
+              "en": "Draft",
+              "vi": "Nháp"
+            }
+          },
+          "SUBMITTED": {
+            "name": {
+              "en": "Submitted",
+              "vi": "Đã gửi"
+            },
+            "editable": false
+          },
+          "IN_PROGRESS": {
+            "name": {
+              "en": "In progress",
+              "vi": "Đang xử lý"
+            },
+            "editable": false
+          },
+          "RESOLVED": {
+            "name": {
+              "en": "Resolved",
+              "vi": "Đã xử lý"
+            },
+            "editable": false
+          },
+          "CLOSED": {
+            "name": {
+              "en": "Closed",
+              "vi": "Đã đóng"
+            },
+            "editable": false
+          },
+          "CANCELLED": {
+            "name": {
+              "en": "Cancelled",
+              "vi": "Đã hủy"
+            },
+            "editable": false
+          }
+        },
+        "transitions": {
+          "submit": {
+            "name": {
+              "en": "Submit",
+              "vi": "Gửi yêu cầu"
+            },
+            "from": "DRAFT",
+            "to": "SUBMITTED",
+            "roles": {
+              "requester": "own"
+            }
+          },
+          "discard": {
+            "name": {
+              "en": "Discard draft",
+              "vi": "Hủy bản nháp"
+            },
+            "from": "DRAFT",
+            "to": "CANCELLED",
+            "roles": {
+              "requester": "own"
+            }
+          },
+          "cancel": {
+            "name": {
+              "en": "Cancel request",
+              "vi": "Hủy yêu cầu"
+            },
+            "from": "SUBMITTED",
+            "to": "CANCELLED",
+            "roles": {
+              "requester": "own"
+            }
+          },
+          "start": {
+            "name": {
+              "en": "Start work",
+              "vi": "Tiếp nhận xử lý"
+            },
+            "from": "SUBMITTED",
+            "to": "IN_PROGRESS",
+            "notByCreator": true,
+            "roles": {
+              "agent": "all",
+              "admin": "all"
+            }
+          },
+          "resolve": {
+            "name": {
+              "en": "Mark resolved",
+              "vi": "Đánh dấu đã xử lý"
+            },
+            "from": "IN_PROGRESS",
+            "to": "RESOLVED",
+            "notByCreator": true,
+            "roles": {
+              "agent": "all",
+              "admin": "all"
+            }
+          },
+          "confirm": {
+            "name": {
+              "en": "Confirm resolution",
+              "vi": "Xác nhận đã xử lý"
+            },
+            "from": "RESOLVED",
+            "to": "CLOSED",
+            "roles": {
+              "requester": "own"
+            }
+          },
+          "reopen": {
+            "name": {
+              "en": "Reopen",
+              "vi": "Yêu cầu xử lý lại"
+            },
+            "from": "RESOLVED",
+            "to": "IN_PROGRESS",
+            "roles": {
+              "requester": "own"
+            }
+          }
+        }
+      }
+    }
+  }
+}
