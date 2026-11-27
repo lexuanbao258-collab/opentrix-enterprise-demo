@@ -15,7 +15,30 @@ audit view — as one React + TypeScript application with its own backend-for-fr
 shell, API client, forms, tables, workflow actions, history/audit components and BFF security; each user sees only the
 modules in which the Platform says they hold a role.
 
-> Candidate status: demo quality on a local stack. Not production-ready (see [Known limitations](docs/evidence/M3-evidence.md#known-limitations)).
+> **Status: a competition-ready, self-hosted demonstration candidate. It is not a production-certified system**
+> and carries no upstream approval. Local stack, synthetic data only. Limitations:
+> [Platform security and limitations](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/SECURITY-LIMITATIONS.md) and [Known limitations](docs/evidence/M3-evidence.md#7-known-limitations).
+
+**Documentation:** [Platform product overview](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/README.md) · [Quick Start](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/QUICKSTART.md) ·
+[Developer guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/DEVELOPER-GUIDE.md) · [API guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/API-GUIDE.md) · [Architecture](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/ARCHITECTURE.md) ·
+[Validation summary](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/VALIDATION.md) · [ESM development guide](docs/DEVELOPMENT.md) · evidence:
+[M3](docs/evidence/M3-evidence.md), [M4](docs/evidence/M4-evidence.md), [M6.2](docs/evidence/M62-evidence.md).
+
+## What it looks like
+
+Real screenshots from the M6.2 build (desktop 1280×800), taken on a **separate, disposable stack seeded with a small
+curated fictional dataset through the public API** (5 categories, 16 tickets, 10 leave requests). The names and
+requests are invented; they are demonstration data, not regression fixtures and not usage statistics. All records share
+one creation timestamp because the API cannot back-date. The UI is Vietnamese-first. More screenshots, including
+mobile, are in [`docs/evidence/m62/after/`](docs/evidence/m62/after/).
+
+| IT Helpdesk: agent queue | IT Helpdesk: resolved ticket with workflow history |
+| --- | --- |
+| ![Agent queue](docs/evidence/m62/after/desktop-it-agent-queue.png) | ![Resolved ticket](docs/evidence/m62/after/desktop-it-requester-detail-resolved.png) |
+
+| HR Leave: creator cannot approve (`notByCreator`) | HR Leave: auditor view, reason redacted |
+| --- | --- |
+| ![Self-approval blocked](docs/evidence/m62/after/desktop-dual-hr-self-approval.png) | ![Audit with redaction](docs/evidence/m62/after/desktop-hr-auditor-audit.png) |
 
 ```
 Browser ──HTTPS/HTTP──> ESM BFF (Node) ──Bearer token (server-side)──> Platform ingress (Caddy) ──> Platform API
@@ -79,30 +102,54 @@ numbers are computed from authorized API pages and labelled when truncated.
 
 ## Quick start
 
-Requirements: Node 22+ (tested on 24), Docker with Compose 2.24.4 or newer, bash (Git Bash on Windows), a checkout of the candidate Platform with the M6.1-FIX deployment files. The Platform runtime baseline is
-`f401b6e79930a1386e71e92a91ae6a909cfa1e59`. Full instructions are in
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Tested in M6.3 on Windows 11 with Git Bash, Docker Desktop (Engine 29.7.2, Compose 5.4.0), Node 24.19.0; Linux and macOS
+are **not verified**. Needs Node 22+, Docker Compose 2.24.4+, bash, `openssl`, `curl`, and a Platform checkout at
+`179d61d31069ce1a1bf246f35722d3a66cad0a93` or a descendant (runtime pinned at `f401b6e79930a1386e71e92a91ae6a909cfa1e59`;
+the checkout supplies the Compose file with the Keycloak readiness gate). Plan for 20 GB free disk; stop if the drive
+falls below 10 GB. Details and troubleshooting: [Quick Start](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/QUICKSTART.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ```bash
-export PLATFORM_DIR=/path/to/hardened-platform-checkout
+git clone https://github.com/lexuanbao258-collab/opentrix-v1-candidate.git ../opentrix-v1-candidate
+export PLATFORM_DIR="$PWD/../opentrix-v1-candidate"
 . deploy/settings.sh
-deploy/platform-stack.sh up                 # PostgreSQL, Keycloak, Platform backend, HTTPS ingress (no legacy Portal)
-deploy/provision-keycloak.sh                # ESM OIDC client + four demo users (random passwords in .local/esm.env)
+deploy/platform-stack.sh up                 # PostgreSQL, Keycloak, Platform backend, HTTPS ingress; registers manifests/
+deploy/provision-keycloak.sh                # ESM OIDC client + demo users; random passwords in .local/esm.env
 docker cp "$ESM_STACK_PROJECT-ingress-1:/data/caddy/pki/authorities/local/root.crt" "$ESM_LOCAL_DIR/caddy-root.crt"
 (cd bff && npm ci && npm run build) && (cd web && npm ci && npm run build)
-deploy/run-bff-local.sh                     # http://localhost:5174
+deploy/run-bff-local.sh                     # http://localhost:5174 (foreground)
 ```
+
+- **Credentials.** Generated locally and never committed: `.local/esm.env` (users) and `.local/platform.env` (stack).
+  Read one value only when you need it, for example `grep '^ESM_PASSWORD_AGENT=' .local/esm.env`. The demo users are
+  listed in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#run-esm).
+- **Health.** `docker compose -p "$ESM_STACK_PROJECT" ps` shows postgres and keycloak `healthy`; `curl http://localhost:5174/bff/session` answers
+  before sign-in; signing in as a demo user shows only the modules that user's roles allow.
+- **Stop without deleting data.** `deploy/platform-stack.sh down` and Ctrl+C in the BFF terminal. Never run
+  `deploy/platform-stack.sh reset` or `docker compose down -v` unless you intend to delete the stack's data.
+- **Parallel stacks.** Set `ESM_STACK_PROJECT`, `ESM_PLATFORM_HTTPS_PORT`, `ESM_KEYCLOAK_PORT`, `ESM_PORT`.
+- If Docker reports `all predefined address pools have been fully subnetted`, see the Quick Start troubleshooting table.
 
 ## Tests
 
 ```bash
-(cd bff && npm test)            # BFF unit/integration tests
-(cd web && npm test)            # web unit + component integration tests
-(cd e2e && npm ci && npx playwright install chromium && npx playwright test)   # real stack
-node scripts/scan-secrets.mjs   # secrets scan of everything publishable
+(cd bff && npm test)            # BFF: 25 passed at 7b191c5 (re-run in M6.3)
+(cd web && npm test)            # web: 68 passed at 7b191c5 (re-run in M6.3)
+(cd e2e && npm ci && npx playwright install chromium && npx playwright test)   # real stack; 119 passed, 0 failed, 4 skipped in M6.2
+node scripts/scan-secrets.mjs   # SECRET_SCAN_PASS in M6.3
 ```
 
-## License
+The suites overlap with earlier milestones; do not add counts across milestones. Provenance of every number:
+[Validation summary](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/VALIDATION.md).
 
-Apache-2.0. Codex assisted with the M6.1-FIX deployment, tests and documentation. Original authorship and attributions
-are in [NOTICE](NOTICE), next to [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+## Limitations
+
+In-memory BFF sessions, no rate limiting, demo-mode Keycloak, no leave balances or approver routing, no assignee or
+comments, no referential integrity between ticket and category, lists and dashboards scan at most 500 authorized
+records client-side, Chromium-only automated browser checks.
+
+## License and attribution
+
+Apache-2.0 ([LICENSE](LICENSE)). Original authorship, reused Platform manifests and fonts are recorded in
+[NOTICE](NOTICE); npm dependencies in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). AI-assisted development is
+disclosed in NOTICE (Codex for the M6.1-FIX deployment, tests and documentation; Claude for the M6.3 documentation);
+the owner should confirm the complete tool list. Candidate work carries no upstream approval.

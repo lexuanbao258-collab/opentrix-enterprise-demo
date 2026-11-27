@@ -23,4 +23,5 @@ Third-party npm packages are listed in THIRD-PARTY-NOTICES.md. Hallmark/Impeccab
 installed in the authoring environment; no third-party design assets are included.
 
 Codex assisted with M6.1-FIX deployment hardening, regression tests and documentation.
+The M6.3 documentation was prepared with AI assistance from Claude.
 The original contributions retain their authorship and licensing.

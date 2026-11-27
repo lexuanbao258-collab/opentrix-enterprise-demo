@@ -87,8 +87,7 @@ touching existing secrets.
 
 How the SPA decides what to show: it calls `GET /bff/api/v1/apps` (Platform discovery: only applications in which the
 caller holds a role), then per application `GET app` / `GET entity` (`allowedOperations`) and, per record,
-`GET workflow` (`allowedActions`). The signed-in user's Platform actor id (`oidc:b64url(iss).b64url(sub)`, as documented
-in the Platform `docs/API.md`) is returned by `/bff/session` so the UI can tell which records a user created.
+`GET workflow` (`allowedActions`). The signed-in user's Platform actor id (`oidc:b64url(iss).b64url(sub)`, as documented in the Platform [API guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/API-GUIDE.md)) is returned by `/bff/session` so the UI can tell which records a user created.
 
 ## 3. Manifest upgrade (1.0.0 -> 1.1.0) and rules
 
