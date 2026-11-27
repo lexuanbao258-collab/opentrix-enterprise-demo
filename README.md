@@ -17,11 +17,11 @@ modules in which the Platform says they hold a role.
 
 > **Status: a competition-ready, self-hosted demonstration candidate. It is not a production-certified system**
 > and carries no upstream approval. Local stack, synthetic data only. Limitations:
-> [Platform security and limitations](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/SECURITY-LIMITATIONS.md) and [Known limitations](docs/evidence/M3-evidence.md#7-known-limitations).
+> [Platform security and limitations](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/SECURITY-LIMITATIONS.md) and [Known limitations](docs/evidence/M3-evidence.md#7-known-limitations).
 
-**Documentation:** [Platform product overview](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/README.md) · [Quick Start](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/QUICKSTART.md) ·
-[Developer guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/DEVELOPER-GUIDE.md) · [API guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/API-GUIDE.md) · [Architecture](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/ARCHITECTURE.md) ·
-[Validation summary](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/VALIDATION.md) · [ESM development guide](docs/DEVELOPMENT.md) · evidence:
+**Documentation:** [Platform product overview](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/README.md) ·
+[Developer guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/DEVELOPER-GUIDE.md) · [API guide](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/API-GUIDE.md) · [Architecture](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/ARCHITECTURE.md) ·
+[Validation summary](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/VALIDATION.md) · [ESM development guide](docs/DEVELOPMENT.md) · evidence:
 [M3](docs/evidence/M3-evidence.md), [M4](docs/evidence/M4-evidence.md), [M6.2](docs/evidence/M62-evidence.md).
 
 ## What it looks like
@@ -103,13 +103,19 @@ numbers are computed from authorized API pages and labelled when truncated.
 ## Quick start
 
 Tested in M6.3 on Windows 11 with Git Bash, Docker Desktop (Engine 29.7.2, Compose 5.4.0), Node 24.19.0; Linux and macOS
-are **not verified**. Needs Node 22+, Docker Compose 2.24.4+, bash, `openssl`, `curl`, and a Platform checkout at
-`179d61d31069ce1a1bf246f35722d3a66cad0a93` or a descendant (runtime pinned at `f401b6e79930a1386e71e92a91ae6a909cfa1e59`;
-the checkout supplies the Compose file with the Keycloak readiness gate). Plan for 20 GB free disk; stop if the drive
-falls below 10 GB. Details and troubleshooting: [Quick Start](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/QUICKSTART.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+are **not verified**. Needs Node 22.12+, Docker Compose 2.24.4+, Git Bash (Windows) or bash, `openssl`, and `curl`.
+The Platform runtime is frozen at `f401b6e79930a1386e71e92a91ae6a909cfa1e59`. The ESM overlay uses the Platform deployment
+at `179d61d31069ce1a1bf246f35722d3a66cad0a93`. This standalone example selects ESM's accepted documentation commit
+`479d4e7a8f44f91a7c45a9265bd3f1a1407ea1f3`, which contains the M6.2 application/workflows. To reproduce M6.4, use the exact
+candidate SHAs in the release manifest. Keep 20 GB free and stop below 10 GB. See the
+[development guide](docs/DEVELOPMENT.md#2-local-stack) for recovery and verification.
 
 ```bash
-git clone https://github.com/lexuanbao258-collab/opentrix-v1-candidate.git ../opentrix-v1-candidate
+git clone --no-checkout https://github.com/lexuanbao258-collab/opentrix-v1-candidate.git opentrix-v1-candidate
+git -C opentrix-v1-candidate checkout --detach 179d61d31069ce1a1bf246f35722d3a66cad0a93
+git clone --no-checkout https://github.com/lexuanbao258-collab/opentrix-enterprise-demo.git opentrix-enterprise-demo
+git -C opentrix-enterprise-demo checkout --detach 479d4e7a8f44f91a7c45a9265bd3f1a1407ea1f3
+cd opentrix-enterprise-demo
 export PLATFORM_DIR="$PWD/../opentrix-v1-candidate"
 . deploy/settings.sh
 deploy/platform-stack.sh up                 # PostgreSQL, Keycloak, Platform backend, HTTPS ingress; registers manifests/
@@ -139,7 +145,7 @@ node scripts/scan-secrets.mjs   # SECRET_SCAN_PASS in M6.3
 ```
 
 The suites overlap with earlier milestones; do not add counts across milestones. Provenance of every number:
-[Validation summary](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/docs/m6.3-documentation/docs/candidate/VALIDATION.md).
+[Validation summary](https://github.com/lexuanbao258-collab/opentrix-v1-candidate/blob/621c32999668203f40363009aabe83ec66287c37/docs/candidate/VALIDATION.md).
 
 ## Limitations
 
