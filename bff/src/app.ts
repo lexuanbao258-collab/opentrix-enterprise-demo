@@ -100,7 +100,8 @@ export function createApp({ config, oidc, sessions, fetchImpl = fetch }: Deps) {
     res.setHeader("Cache-Control", "no-store");
     if (!pending) return problem(res, 400, "LOGIN_EXPIRED", "Login attempt is unknown or expired");
     try {
-      const callback = new URL(`${config.publicOrigin}${req.originalUrl}`);
+      const callback = new URL(config.oidcRedirectUri);
+      callback.search = new URL(req.originalUrl, config.publicOrigin).search;
       const result = await oidc.finishLogin(callback, pending);
       sessions.destroy(cookies(req)[SID]);
       const session = sessions.create(result.user, result.tokens);
@@ -200,9 +201,11 @@ export function createApp({ config, oidc, sessions, fetchImpl = fetch }: Deps) {
         clearSession(res);
         return problem(res, 401, "SESSION_EXPIRED", "Session ended; sign in again");
       }
-      // The ingress answers 502/504 when it cannot get a reply from the Platform: for a write the outcome is unknown.
+      // A 500 or a missing upstream reply does not establish whether a write committed.
+      if (write && [500, 502, 504].includes(upstream.status)) {
+        return problem(res, 503, "COMMIT_OUTCOME_UNKNOWN", "The write may or may not have been applied; read the record before repeating it");
+      }
       if (upstream.status === 502 || upstream.status === 504) {
-        if (write) return problem(res, 503, "COMMIT_OUTCOME_UNKNOWN", "The write may or may not have been applied; read the record before repeating it");
         return problem(res, 502, "PLATFORM_UNAVAILABLE", "The Platform API is unavailable");
       }
       const text = await upstream.text();

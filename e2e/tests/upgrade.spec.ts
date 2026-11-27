@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
+import { localFile } from "../support/settings";
 import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { apiLogin } from "../support/api";
 
-const SEED = new URL("../../.local/seed-v1.json", import.meta.url);
+const SEED = localFile("seed-v1.json");
 
 test("manifest 1.1.0 is active with the ticket entity", async () => {
   const admin = await apiLogin("admin");

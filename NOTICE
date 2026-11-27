@@ -21,3 +21,6 @@ Reused from the OpenTrix Platform candidate, retaining attribution:
 
 Third-party npm packages are listed in THIRD-PARTY-NOTICES.md. Hallmark/Impeccable design skills were not
 installed in the authoring environment; no third-party design assets are included.
+
+Codex assisted with M6.1-FIX deployment hardening, regression tests and documentation.
+The original contributions retain their authorship and licensing.

@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
 import { mkdirSync } from "node:fs";
+import { localFile } from "../support/settings";
 import { test as setup, expect } from "@playwright/test";
 import { apiLogin, credentials, type Role } from "../support/api";
 import { statePath } from "../support/state";
 
-mkdirSync(new URL("../../.local/auth", import.meta.url), { recursive: true });
+mkdirSync(localFile("auth"), { recursive: true });
 
 for (const role of ["requester1", "requester2", "agent", "admin", "employee1", "employee2", "manager", "auditor", "dual"] as Role[]) {
   setup(`sign in as ${role} through Keycloak`, async ({ page }) => {

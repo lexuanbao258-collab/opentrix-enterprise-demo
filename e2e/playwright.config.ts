@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.ESM_PUBLIC_ORIGIN ?? "http://localhost:5174";
+import { fileURLToPath } from "node:url";
+import { BASE_URL, evidenceFile } from "./support/settings";
+
+const baseURL = BASE_URL;
 
 /**
  * Runs against a REAL stack: PostgreSQL + Keycloak + Platform backend + the ESM BFF serving the built SPA.
@@ -15,7 +18,7 @@ export default defineConfig({
   retries: 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [["list"], ["json", { outputFile: "../docs/evidence/e2e-results.json" }]],
+  reporter: [["list"], ["json", { outputFile: fileURLToPath(evidenceFile("e2e-results.json")) }]],
   use: { baseURL, trace: "off", screenshot: "off", locale: "vi-VN" },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/, use: { ...devices["Desktop Chrome"] } },

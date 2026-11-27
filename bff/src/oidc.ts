@@ -56,7 +56,7 @@ function toTokens(response: client.TokenEndpointResponse): TokenSet {
 
 /** Authorization Code with PKCE (S256), state and nonce against a confidential client. */
 export function createOidc(config: Config): OidcPort {
-  const redirectUri = `${config.publicOrigin}/bff/callback`;
+  const redirectUri = config.oidcRedirectUri;
   let discovered: Promise<client.Configuration> | null = null;
   const settings = () => {
     discovered ??= client

@@ -35,6 +35,12 @@ describe("api client", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("requires reconciliation for an unclassified write 500", async () => {
+    const calls = mockFetch(() => [500, null]);
+    await expect(api.transition("ticket", "id", "submit", 0)).rejects.toMatchObject({ code: "COMMIT_OUTCOME_UNKNOWN" });
+    expect(calls).toHaveLength(1);
+  });
+
   it("maps a failed read connection to NETWORK", async () => {
     mockFetch(() => undefined);
     await expect(api.get("ticket", "id")).rejects.toMatchObject({ code: "NETWORK" });

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
+import { localFile, PLATFORM_URL } from "../support/settings";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -95,7 +96,7 @@ test.describe("application discovery and cross-app isolation", () => {
     expect(unauth.status()).toBe(401);
     expect((await unauth.json()).code).toBe("SESSION_EXPIRED");
     expect((await anonymous.get("/bff/api/v1/apps", { failOnStatusCode: false })).status()).toBe(401);
-    const direct = await anonymous.get("https://localhost:8443/api/v1/apps/hr-leave", { ignoreHTTPSErrors: true, failOnStatusCode: false });
+    const direct = await anonymous.get(`${PLATFORM_URL}/api/v1/apps/hr-leave`, { failOnStatusCode: false });
     expect(direct.status()).toBe(401);
     await anonymous.dispose();
 
@@ -305,7 +306,7 @@ test.describe("sensitive HR data does not leak", () => {
 
   test("the reason appears in no BFF log and no Platform/ingress container log", async () => {
     const logs: string[] = [];
-    const bff = new URL("../../.local/bff.log", import.meta.url);
+    const bff = localFile("bff.log");
     if (existsSync(bff)) logs.push(readFileSync(bff, "utf8"));
     for (const service of ["backend", "ingress", "postgres"]) {
       try {

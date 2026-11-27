@@ -15,14 +15,14 @@
 # reset   stop and delete ONLY this project's volumes (explicit, destructive)
 set -euo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-ROOT="$(dirname "$HERE")"
+. "$HERE/settings.sh"
 : "${PLATFORM_DIR:?set PLATFORM_DIR to the Platform checkout}"
 : "${ESM_MANIFEST_DIR:=$ROOT/manifests}"
 export ESM_MANIFEST_DIR
-PROJECT="${ESM_STACK_PROJECT:-opentrix-esm}"
-ENV_FILE="$ROOT/.local/platform.env"
-mkdir -p "$ROOT/.local"
-C="docker compose -p $PROJECT --project-directory $PLATFORM_DIR/infra --env-file $ENV_FILE -f $PLATFORM_DIR/infra/compose.demo.yml -f $HERE/compose.esm.yml"
+ENV_FILE="$ESM_LOCAL_DIR/platform.env"
+mkdir -p "$ESM_LOCAL_DIR"
+compose=(docker compose -p "$ESM_STACK_PROJECT" --project-directory "$PLATFORM_DIR/infra" --env-file "$ENV_FILE"
+  -f "$PLATFORM_DIR/infra/compose.demo.yml" -f "$HERE/compose.esm.yml")
 
 if [ ! -f "$ENV_FILE" ]; then
   umask 077
@@ -44,18 +44,27 @@ fi
 
 case "${1:-}" in
   up)
-    $C up -d --build backend ingress
+    "${compose[@]}" up -d --build backend ingress
     ;;
   migrate)
-    $C rm -f platform-migrate
-    $C up --no-deps platform-migrate
-    $C restart backend
+    "${compose[@]}" stop backend
+    if "${compose[@]}" run --rm --no-deps platform-migrate; then
+      if ! "${compose[@]}" start --wait --wait-timeout 180 keycloak; then
+        echo "Manifest registered. Backend remains stopped because Keycloak is not ready." >&2
+        exit 1
+      fi
+      "${compose[@]}" restart --no-deps backend
+    else
+      status=$?
+      echo "Manifest registration failed (exit $status). Backend remains stopped. Correct the manifest and run migrate again." >&2
+      exit "$status"
+    fi
     ;;
   down)
-    $C stop backend ingress keycloak postgres
+    "${compose[@]}" stop backend ingress keycloak postgres
     ;;
   reset)
-    $C down -v --remove-orphans
+    "${compose[@]}" down -v --remove-orphans
     ;;
   *) echo "usage: $0 up|migrate|down|reset" >&2; exit 2;;
 esac

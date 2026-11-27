@@ -3,7 +3,7 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
-import type { Config } from "../src/config.js";
+import { loadConfig, type Config } from "../src/config.js";
 import { platformActorId, type OidcPort, type TokenSet } from "../src/oidc.js";
 import { matchRoute, cleanQuery } from "../src/routes.js";
 import { SessionStore } from "../src/sessions.js";
@@ -12,7 +12,7 @@ const ORIGIN = "http://localhost:5174";
 const UUID = "0b3f6d7e-1c2a-4f5b-9d8e-123456789abc";
 const config: Config = {
   port: 0, host: "127.0.0.1", publicOrigin: ORIGIN, oidcIssuer: "http://kc.test/realms/r", oidcClientId: "esm-bff",
-  oidcClientSecret: "s", platformApiUrl: "https://platform.test", cookieSecure: false,
+  oidcRedirectUri: `${ORIGIN}/bff/callback`, oidcClientSecret: "s", platformApiUrl: "https://platform.test", cookieSecure: false,
   sessionIdleMs: 60_000, sessionMaxMs: 600_000, staticDir: null,
 };
 
@@ -57,6 +57,16 @@ async function login(agent: ReturnType<typeof request.agent>, returnTo = "/ticke
 }
 
 describe("login and session", () => {
+  it("supports an explicit callback port and rejects a callback on an unrelated host", () => {
+    const env = {
+      ESM_PUBLIC_ORIGIN: ORIGIN, PLATFORM_API_URL: "https://platform.test",
+      OIDC_ISSUER: "http://kc.test/realms/r", OIDC_CLIENT_SECRET: "test",
+      OIDC_REDIRECT_URI: "http://localhost:6001/bff/callback",
+    };
+    expect(loadConfig(env).oidcRedirectUri).toBe(env.OIDC_REDIRECT_URI);
+    expect(() => loadConfig({ ...env, OIDC_REDIRECT_URI: "http://other.test/bff/callback" })).toThrow("OIDC_REDIRECT_URI");
+  });
+
   it("redirects to the identity provider and keeps PKCE material server-side", async () => {
     const { agent } = harness();
     const res = await agent.get("/bff/login").expect(302);
@@ -210,6 +220,15 @@ describe("Platform API proxy", () => {
     const { csrf } = await login(agent);
     const res = await agent.post(records).set("Origin", ORIGIN).set("X-CSRF-Token", csrf).send({ id: UUID, data: {} }).expect(503);
     expect(res.body.code).toBe("COMMIT_OUTCOME_UNKNOWN");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires reconciliation for a Platform 500 after sending a write", async () => {
+    const fetchImpl = vi.fn(async () => new Response("Internal error", { status: 500 }));
+    const { agent } = harness({ fetchImpl });
+    const { csrf } = await login(agent);
+    const write = await agent.post(records).set("Origin", ORIGIN).set("X-CSRF-Token", csrf).send({ id: UUID, data: {} }).expect(503);
+    expect(write.body.code).toBe("COMMIT_OUTCOME_UNKNOWN");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

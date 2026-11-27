@@ -56,6 +56,9 @@ async function send<T>(method: string, path: string, body?: unknown, query?: Rec
       ? new ApiError(0, "COMMIT_OUTCOME_UNKNOWN", "Không xác nhận được kết quả ghi dữ liệu")
       : new ApiError(0, "NETWORK", "Không thể kết nối tới máy chủ");
   }
+  if (write && response.status === 500) {
+    throw new ApiError(500, "COMMIT_OUTCOME_UNKNOWN", "Không xác nhận được kết quả ghi dữ liệu");
+  }
   if (response.status === 204) return undefined as T;
   const text = await response.text();
   let payload: unknown = null;

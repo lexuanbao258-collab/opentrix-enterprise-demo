@@ -79,15 +79,16 @@ numbers are computed from authorized API pages and labelled when truncated.
 
 ## Quick start
 
-Requirements: Node 22+ (tested on 24), Docker with Compose 2.24+, bash (Git Bash on Windows), a checkout of the
-Platform at the frozen baseline `f401b6e79930a1386e71e92a91ae6a909cfa1e59`. Full instructions:
+Requirements: Node 22+ (tested on 24), Docker with Compose 2.24.4 or newer, bash (Git Bash on Windows), a checkout of the candidate Platform with the M6.1-FIX deployment files. The Platform runtime baseline is
+`f401b6e79930a1386e71e92a91ae6a909cfa1e59`. Full instructions are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ```bash
-export PLATFORM_DIR=/path/to/platform-checkout-at-f401b6e
+export PLATFORM_DIR=/path/to/hardened-platform-checkout
+. deploy/settings.sh
 deploy/platform-stack.sh up                 # PostgreSQL, Keycloak, Platform backend, HTTPS ingress (no legacy Portal)
 deploy/provision-keycloak.sh                # ESM OIDC client + four demo users (random passwords in .local/esm.env)
-docker cp opentrix-esm-ingress-1:/data/caddy/pki/authorities/local/root.crt .local/caddy-root.crt
+docker cp "$ESM_STACK_PROJECT-ingress-1:/data/caddy/pki/authorities/local/root.crt" "$ESM_LOCAL_DIR/caddy-root.crt"
 (cd bff && npm ci && npm run build) && (cd web && npm ci && npm run build)
 deploy/run-bff-local.sh                     # http://localhost:5174
 ```
@@ -103,4 +104,5 @@ node scripts/scan-secrets.mjs   # secrets scan of everything publishable
 
 ## License
 
-Apache-2.0, see [LICENSE](LICENSE), [NOTICE](NOTICE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Apache-2.0. Codex assisted with the M6.1-FIX deployment, tests and documentation. Original authorship and attributions
+are in [NOTICE](NOTICE), next to [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

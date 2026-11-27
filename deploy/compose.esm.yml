@@ -2,9 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Overlay for the OpenTrix Platform demo stack (compose.demo.yml of the Platform baseline).
-# It changes deployment configuration only: which manifest directory the controlled
-# `platform-migrate` step registers, and it lets the ingress start without the legacy Portal BFF.
+# Isolate host ports and manifests while inheriting Platform's Keycloak readiness check.
 services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:${ESM_PLATFORM_HTTPS_PORT:-8443}:8443"
+      - "127.0.0.1:${ESM_KEYCLOAK_PORT:-8180}:${ESM_KEYCLOAK_PORT:-8180}"
+  keycloak:
+    environment:
+      KC_HTTP_PORT: "${ESM_KEYCLOAK_PORT:-8180}"
+      KC_HOSTNAME: ${ESM_KEYCLOAK_URL:-http://localhost:8180}
+  kc-init:
+    environment:
+      KC_SERVER: ${KC_SERVER:-http://localhost:8180}
+  backend:
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      OIDC_ISSUER_URI: ${OIDC_ISSUER:-http://localhost:8180/realms/tricore}
   platform-migrate:
     volumes:
       - ${ESM_MANIFEST_DIR:?set ESM_MANIFEST_DIR}:/apps:ro

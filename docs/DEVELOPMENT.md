@@ -27,10 +27,11 @@ ESM never reads the Platform database. The only database access in this reposito
 ## 2. Local stack
 
 ```bash
-export PLATFORM_DIR=/path/to/platform@f401b6e     # e.g. `git archive f401b6e | tar -x -C <dir>` - read-only use
+export PLATFORM_DIR=/path/to/hardened-platform-checkout   # M6.1-FIX deployment, runtime code at f401b6e
+. deploy/settings.sh
 deploy/platform-stack.sh up        # project "opentrix-esm": postgres, keycloak, backend, ingress. Portal/Portal BFF are NOT started
 deploy/provision-keycloak.sh       # generates .local/esm.env (git-ignored) and registers client + demo users
-docker cp opentrix-esm-ingress-1:/data/caddy/pki/authorities/local/root.crt .local/caddy-root.crt
+docker cp "$ESM_STACK_PROJECT-ingress-1:/data/caddy/pki/authorities/local/root.crt" "$ESM_LOCAL_DIR/caddy-root.crt"
 ```
 
 `platform-stack.sh` only touches Compose project `${ESM_STACK_PROJECT:-opentrix-esm}`:
@@ -38,11 +39,26 @@ docker cp opentrix-esm-ingress-1:/data/caddy/pki/authorities/local/root.crt .loc
 | Command | Effect |
 | --- | --- |
 | `up` | build/start, register manifests from `ESM_MANIFEST_DIR` (default `manifests/`) |
-| `migrate` | re-run the controlled migration + manifest registration, then restart the backend |
+| `migrate` | stop the backend, run registration as the Platform schema owner, wait for Keycloak and start the backend after success |
 | `down` | stop containers, **keep volumes** |
 | `reset` | delete **only this project's** volumes (explicit and destructive; never run automatically) |
 
-Ports: `127.0.0.1:8443` (Platform HTTPS ingress), `127.0.0.1:8180` (Keycloak). Stop other stacks that use them.
+Use a different `ESM_STACK_PROJECT` and unused loopback ports to run beside the default demo.
+Set variables consistently for provisioning, running the BFF and Playwright. A non-default project stores credentials,
+its CA and Playwright artifacts under `.local/<project>/`.
+
+| Setting | Default |
+| --- | --- |
+| `ESM_PLATFORM_HTTPS_PORT` | `8443` (Platform ingress host port) |
+| `ESM_KEYCLOAK_PORT` | `8180` (Keycloak HTTP port inside the shared namespace and on the host) |
+| `ESM_PORT` | `5174` (BFF listen port) |
+| `PLATFORM_API_URL` | `https://localhost:$ESM_PLATFORM_HTTPS_PORT` |
+| `OIDC_ISSUER` | `http://localhost:$ESM_KEYCLOAK_PORT/realms/tricore`; reachable by both the client and Platform |
+| `ESM_BFF_URL` | `ESM_PUBLIC_ORIGIN`, if set, or `http://localhost:$ESM_PORT` |
+| `OIDC_REDIRECT_URI` | `$ESM_BFF_URL/bff/callback`; keep the same hostname and scheme and route to the same BFF |
+| `E2E_BASE_URL`, `E2E_PLATFORM_URL` | BFF and Platform URLs above; optional Playwright overrides |
+
+Export `NODE_EXTRA_CA_CERTS` with the project CA or source `deploy/env.sh` before starting the BFF and Playwright.
 Keycloak runs in `start-dev` with state inside its container: if the container is *recreated*, run
 `deploy/provision-keycloak.sh` again (idempotent). PostgreSQL data lives in a named volume and survives.
 
@@ -89,8 +105,11 @@ deploy/check-incompatible-upgrades.sh                                  # shows u
 deploy/db-snapshot.sh                                                  # operator evidence: row fingerprints before/after
 ```
 
-The backend caches manifests for its lifetime: `migrate` restarts it. No `DROP`, no migration file is edited; the
-Platform's own V1/V2/V3 migrations are unchanged.
+The backend caches manifests for its lifetime. During `migrate`, it is stopped before registration starts. Registration
+failure exits with an explicit message and leaves the backend stopped. Check the error, correct the manifest directory,
+and run `migrate` again to restore service. The negative upgrade helper leaves the backend stopped after rejected attempts.
+Use the previously active manifests when restoring a rejected deployment. Serialize operator deploy and restart commands
+for a given project.
 
 ## 4. How ESM handles failures
 
@@ -100,7 +119,7 @@ Platform's own V1/V2/V3 migrations are unchanged.
 | 403 | message "no permission"; the UI never relies on this - controls come from `allowedOperations` and `allowedActions` |
 | 409 `VERSION_CONFLICT` / `STATE_LOCKED` / `TRANSITION_NOT_ALLOWED` | message + **Reload**; nothing is retried |
 | 400 `VALIDATION_FAILED` | errors attached to fields by JSON pointer (`/title`) |
-| 503 `COMMIT_OUTCOME_UNKNOWN`, or any lost connection / ingress 502/504 on a write | amber banner; form locked; **Check status** reads the record; only after proof of absence is **Retry with the same request id** offered (create uses a client UUID so the Platform deduplicates) |
+| 503 `COMMIT_OUTCOME_UNKNOWN`, a lost connection, or HTTP 500/502/504 of uncertain origin on a write | amber banner; form locked; **Check status** reads the record; only after proof of absence is **Retry with the same request id** offered (create uses a client UUID so the Platform deduplicates) |
 
 The BFF never retries a write. Reads that fail show an error with a Retry button.
 

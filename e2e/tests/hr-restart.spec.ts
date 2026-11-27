@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
+import { localFile } from "../support/settings";
 import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { apiLogin, HR } from "../support/api";
 
-const IDS = new URL("../../.local/hr-ids.json", import.meta.url);
+const IDS = localFile("hr-ids.json");
 
 test("manifest hr-leave 1.1.0 is active with the leaveRequest entity and the declared workflow", async () => {
   const manager = (await apiLogin("manager")).forApp(HR);

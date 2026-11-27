@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
+import { localFile } from "../support/settings";
 // Writes category records while the stack runs it-helpdesk 1.0.0, so the upgrade test has real data to preserve.
 // Usage: tsx scripts/seed-v1-data.ts  (BFF must be running against the stack)
 import { writeFileSync } from "node:fs";
@@ -28,6 +29,6 @@ const updated = await admin.put(`/entities/category/records/${net.id}`, {
   data: { ...CATEGORIES[0], description: "Sự cố kết nối mạng, VPN, Wi-Fi (đã cập nhật)" },
 });
 created.NETWORK = { id: net.id, version: updated.body.version };
-writeFileSync(new URL("../../.local/seed-v1.json", import.meta.url), JSON.stringify(created, null, 2));
+writeFileSync(localFile("seed-v1.json"), JSON.stringify(created, null, 2));
 console.log("seeded", Object.keys(created).length, "categories:", JSON.stringify(created));
 await admin.dispose();

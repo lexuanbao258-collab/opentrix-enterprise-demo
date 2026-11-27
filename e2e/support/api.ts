@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { request, type APIRequestContext } from "@playwright/test";
 
-export const BASE_URL = process.env.ESM_PUBLIC_ORIGIN ?? "http://localhost:5174";
+import { BASE_URL, localFile } from "./settings";
+export { BASE_URL };
 export const IT = "it-helpdesk";
 export const HR = "hr-leave";
 
@@ -27,7 +28,7 @@ export function credentials(role: Role): { username: string; password: string } 
   const { username, env } = USERS[role];
   let password = process.env[env];
   if (!password) {
-    const file = readFileSync(new URL("../../.local/esm.env", import.meta.url), "utf8");
+    const file = readFileSync(localFile("esm.env"), "utf8");
     password = file.split(/\r?\n/).find((line) => line.startsWith(`${env}=`))?.slice(env.length + 1);
   }
   if (!password) throw new Error(`Missing ${env}`);

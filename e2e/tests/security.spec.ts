@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from "node:crypto";
+import { PLATFORM_URL } from "../support/settings";
 import { expect, request, test } from "@playwright/test";
 import { Api, apiLogin, BASE_URL, type Role } from "../support/api";
 
@@ -31,10 +32,10 @@ test.describe("authentication", () => {
     const viaBff = await anonymous.get("/bff/api/v1/apps/it-helpdesk/entities/ticket/records", { failOnStatusCode: false });
     expect(viaBff.status()).toBe(401);
     expect((await viaBff.json()).code).toBe("SESSION_EXPIRED");
-    const direct = await anonymous.get("https://localhost:8443/api/v1/apps/it-helpdesk", { ignoreHTTPSErrors: true, failOnStatusCode: false });
+    const direct = await anonymous.get(`${PLATFORM_URL}/api/v1/apps/it-helpdesk`, { failOnStatusCode: false });
     expect(direct.status()).toBe(401);
-    const forged = await anonymous.get("https://localhost:8443/api/v1/apps/it-helpdesk", {
-      ignoreHTTPSErrors: true, failOnStatusCode: false, headers: { Authorization: "Bearer not-a-jwt" },
+    const forged = await anonymous.get(`${PLATFORM_URL}/api/v1/apps/it-helpdesk`, {
+      failOnStatusCode: false, headers: { Authorization: "Bearer not-a-jwt" },
     });
     expect(forged.status()).toBe(401);
     expect((await anonymous.get("/bff/session")).ok()).toBeTruthy();

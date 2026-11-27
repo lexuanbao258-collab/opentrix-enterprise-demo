@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
+import { localFile } from "../support/settings";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { apiLogin, HR, type Role } from "../support/api";
@@ -21,11 +22,11 @@ const SECRET = `Lý do riêng tư ${RUN}`;
 const idOf = (url: string) => /\/hr\/requests\/([0-9a-f-]{36})/.exec(url)?.[1] ?? "";
 
 /** Ids written for the restart check (see hr-restart.spec.ts). */
-const IDS = new URL("../../.local/hr-ids.json", import.meta.url);
+const IDS = localFile("hr-ids.json");
 const ids: Record<string, { id: string; state: string }> = {};
 const remember = (key: string, id: string, state: string) => {
   ids[key] = { id, state };
-  mkdirSync(new URL("../../.local/", import.meta.url), { recursive: true });
+  mkdirSync(localFile("."), { recursive: true });
   writeFileSync(IDS, JSON.stringify(ids, null, 2));
 };
 

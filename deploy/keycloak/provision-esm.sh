@@ -15,6 +15,7 @@ KC=/opt/keycloak/bin/kcadm.sh
 CFG=/tmp/esm-kcadm.config
 REALM="${REALM:-tricore}"
 SERVER="${KC_SERVER:-http://localhost:8180}"
+REDIRECT_URI="${OIDC_REDIRECT_URI:-$ESM_PUBLIC_ORIGIN/bff/callback}"
 API="${API_CLIENT:-tricore-api}"
 CLIENT="${CLIENT_ID:-esm-bff}"
 trap 'rm -f "$CFG"' EXIT
@@ -37,7 +38,7 @@ if [ -z "$CID" ]; then
   "directAccessGrantsEnabled": false,
   "serviceAccountsEnabled": false,
   "fullScopeAllowed": false,
-  "redirectUris": ["$ESM_PUBLIC_ORIGIN/bff/callback"],
+  "redirectUris": ["$REDIRECT_URI"],
   "webOrigins": [],
   "attributes": {
     "pkce.code.challenge.method": "S256",
@@ -66,7 +67,7 @@ else
   echo "client $CLIENT: exists"
 fi
 $KC update "clients/$CID" -r "$REALM" --config "$CFG" -s "secret=$OIDC_CLIENT_SECRET" \
-  -s "redirectUris=[\"$ESM_PUBLIC_ORIGIN/bff/callback\"]" \
+  -s "redirectUris=[\"$REDIRECT_URI\"]" \
   -s "attributes.\"post.logout.redirect.uris\"=$ESM_PUBLIC_ORIGIN/" >/dev/null
 
 # The client may only ever carry the it-helpdesk and hr-leave roles of the resource client (full scope is off).

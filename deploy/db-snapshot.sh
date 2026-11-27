@@ -4,9 +4,9 @@
 # Read-only operator evidence (NOT used by the ESM application): fingerprints Platform rows for upgrade checks.
 set -euo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-. "$HERE/../.local/platform.env"
-PROJECT="${ESM_STACK_PROJECT:-opentrix-esm}"
-docker exec -i -e PGPASSWORD="$HELPDESK_SETUP_PASSWORD" "$PROJECT-postgres-1" \
+. "$HERE/settings.sh"
+. "$ESM_LOCAL_DIR/platform.env"
+docker exec -i -e PGPASSWORD="$HELPDESK_SETUP_PASSWORD" "$ESM_STACK_PROJECT-postgres-1" \
   psql -h 127.0.0.1 -U helpdesk_setup -d helpdesk_disposable_demo -X -A -t -F '|' -v ON_ERROR_STOP=1 <<'SQL'
 \echo -- applications (app_key|version|sha256-prefix)
 SELECT app_key, app_version, left(manifest_sha256, 12) FROM opentrix_platform.applications ORDER BY 1;

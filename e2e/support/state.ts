@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { fileURLToPath } from "node:url";
 import type { Role } from "./api";
+import { localFile } from "./settings";
 
 /** Browser storage state of a signed-in role (cookies only; git-ignored under .local). */
-export const statePath = (role: Role) => fileURLToPath(new URL(`../../.local/auth/${role}.json`, import.meta.url));
+export const statePath = (role: Role) => fileURLToPath(localFile(`auth/${role}.json`));
