@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # M4 evidence — OpenTrix ESM: HR Leave as the second module
 
 Date: 2026-11-27. Platform baseline: `f401b6e79930a1386e71e92a91ae6a909cfa1e59`. M3 checkpoint: `d13d999`.
-ESM commit: see `git log` (the commit containing this file).
+ESM implementation commit: `47085c4` (this file is committed right after it).
 
 ## 1. Result
 
@@ -27,7 +27,7 @@ migrations and API are untouched. `hr-leave` **1.1.0** is the baseline manifest,
 | `npm audit` (bff, web, e2e; all and `--omit=dev`) | 0 vulnerabilities | — | — | |
 | Licenses | no new dependency; summary unchanged (`THIRD-PARTY-NOTICES.md`) | | | |
 | Secret scan | PASS | | | 113 files, 21 real secret values, 4 patterns |
-| Clean-clone verification | see section 9 | | | |
+| Clean-clone verification (commit `47085c4`) | OK | — | — | section 9 |
 
 One earlier full run had 2 failures in my new keyboard-order test (it assumed a native date input is one tab stop);
 the test was fixed (it now walks the tab stops) and the full run above is the re-run. No product code changed for that.
@@ -121,7 +121,7 @@ time-saving figure is claimed.
 
 ## 9. Clean clone
 
-See the final section appended after the commit (`git clone` → `npm ci` → typecheck → test → build for `bff` and `web`, `e2e` typecheck, secret scan).
+Fresh `git clone` of commit `47085c4` into a temp directory: `npm ci --ignore-scripts`, `typecheck`, `test`, `build` for `bff` (23 passed) and `web` (60 passed) all OK; `e2e` `npm ci` + `tsc --noEmit` OK; secret scan PASS; `manifests/hr-leave/app.json` sha256 `0f717f2b…` identical to the Platform baseline. (Playwright was run in the working checkout against the live stack, section 2.)
 
 ## 10. Known limitations
 
