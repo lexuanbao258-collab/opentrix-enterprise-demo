@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { collect, hrApi } from "../api/client";
 import type { LeaveRequest, Page } from "../api/types";
 import { useHr } from "../auth/AuthContext";
@@ -25,7 +25,8 @@ export function LeaveList({ mode }: { mode: "mine" | "approvals" | "all" }) {
   const { hr, user } = useHr();
   const ops = hr.leave.allowedOperations;
   const [text, setText] = useState("");
-  const [state, setState] = useState("");
+  const [params] = useSearchParams();
+  const [state, setState] = useState(params.get("state") ?? "");
   const [offset, setOffset] = useState(0);
   const q = useDebounced(text.trim());
   useEffect(() => setOffset(0), [q, state]);
@@ -90,21 +91,23 @@ export function LeaveList({ mode }: { mode: "mine" | "approvals" | "all" }) {
                 <caption className="sr-only">{title}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">{vi.leave.code}</th><th scope="col">{vi.leave.kind}</th><th scope="col">{vi.leave.startDate}</th>
-                    <th scope="col">{vi.leave.days}</th><th scope="col">{vi.leave.owner}</th><th scope="col">{vi.leave.state}</th>
+                    <th scope="col">{vi.leave.kind}</th><th scope="col">{vi.leave.startDate}</th>
+                    <th scope="col" className="num">{vi.leave.days}</th><th scope="col">{vi.leave.owner}</th><th scope="col">{vi.leave.state}</th>
                     <th scope="col">{vi.common.updated}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.data.page.items.map((item) => (
                     <tr key={item.id} data-own={item.createdBy === user.id}>
-                      <td data-label={vi.leave.code}><code>{shortId(item.id)}</code></td>
-                      <td data-label={vi.leave.kind} className="cell-title"><Link to={`/hr/requests/${item.id}`}>{vi.leave.kinds[item.data.kind] ?? item.data.kind}</Link></td>
+                      <td data-label={vi.leave.kind} className="cell-title">
+                        <Link to={`/hr/requests/${item.id}`}>{vi.leave.kinds[item.data.kind] ?? item.data.kind}</Link>
+                        <span className="cell-sub">{vi.leave.code} <code>{shortId(item.id)}</code></span>
+                      </td>
                       <td data-label={vi.leave.startDate}>{formatDate(item.data.startDate)}</td>
-                      <td data-label={vi.leave.days}>{item.data.days}</td>
-                      <td data-label={vi.leave.owner}>{item.createdBy === user.id ? vi.leave.own : `…${item.createdBy.slice(-6)}`}</td>
+                      <td data-label={vi.leave.days} className="num">{item.data.days}</td>
+                      <td data-label={vi.leave.owner} title={item.createdBy === user.id ? undefined : `…${item.createdBy.slice(-6)}`}>{item.createdBy === user.id ? vi.leave.you : vi.leave.otherEmployee}</td>
                       <td data-label={vi.leave.state}><StatusBadge state={item.state} label={leaveStateLabel(hr, item.state)} /></td>
-                      <td data-label={vi.common.updated}>{formatDateTime(item.updatedAt)}</td>
+                      <td data-label={vi.common.updated} className="nowrap">{formatDateTime(item.updatedAt)}</td>
                     </tr>
                   ))}
                 </tbody>

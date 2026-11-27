@@ -54,3 +54,10 @@ export function validateCategory(data: Partial<Category>): Record<string, string
   if ((data.description?.length ?? 0) > 2000) errors.description = vi.form.maxLength(2000);
   return errors;
 }
+
+const URGENCY: Record<string, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
+/** Most urgent first, then the most recently updated. */
+export function byUrgency(a: PlatformRecord<Ticket>, b: PlatformRecord<Ticket>): number {
+  return (URGENCY[a.data.priority] ?? 9) - (URGENCY[b.data.priority] ?? 9) || b.updatedAt.localeCompare(a.updatedAt);
+}
+export const byRecent = (a: PlatformRecord<unknown>, b: PlatformRecord<unknown>) => b.updatedAt.localeCompare(a.updatedAt);

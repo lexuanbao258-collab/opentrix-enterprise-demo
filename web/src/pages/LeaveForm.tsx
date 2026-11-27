@@ -4,7 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError, hrApi } from "../api/client";
 import type { LeaveRequest, PlatformRecord } from "../api/types";
-import { Alert, Button, EmptyState, Field, PageHeader, Spinner } from "../components/ui";
+import { Alert, Button, EmptyState, Field, PageHeader, Spinner, focusFirstInvalid } from "../components/ui";
 import { fieldErrors, isUnknownOutcome, messageFor } from "../domain/errors";
 import { LEAVE_KINDS, LEAVE_LIMITS, validateLeave } from "../domain/leave";
 import { useLoad } from "../hooks/useLoad";
@@ -51,6 +51,7 @@ function FormBody({ mode, record }: { mode: "new" | "edit"; record: PlatformReco
   const [notice, setNotice] = useState<string | null>(null);
   // Stable per form instance: an explicit retry of an unknown create reuses the id, so the Platform can deduplicate it.
   const createId = useRef<string>(crypto.randomUUID());
+  const formRef = useRef<HTMLFormElement>(null);
   const version = useRef<number>(record?.version ?? 0);
 
   const set = (key: keyof Values, value: string) => {
@@ -91,7 +92,7 @@ function FormBody({ mode, record }: { mode: "new" | "edit"; record: PlatformReco
     event.preventDefault();
     const problems = validateLeave(values);
     setErrors(problems);
-    if (Object.keys(problems).length) return;
+    if (Object.keys(problems).length) return focusFirstInvalid(formRef.current);
     void run(intent, { kind: values.kind as LeaveRequest["kind"], startDate: values.startDate, days: Number(values.days), reason: values.reason.trim() });
   }
 
@@ -155,29 +156,37 @@ function FormBody({ mode, record }: { mode: "new" | "edit"; record: PlatformReco
       )}
       {notice && <Alert tone="info">{notice}</Alert>}
 
-      <form className="card form" noValidate onSubmit={(event) => onSubmit(event, "draft")} aria-label={title}>
+      <form ref={formRef} className="card form" noValidate onSubmit={(event) => onSubmit(event, "draft")} aria-label={title}>
         <fieldset disabled={locked || busy !== null}>
-          <Field label={vi.leave.kind} error={errors.kind}>
-            {(props) => (
-              <select {...props} required value={values.kind} onChange={(event) => set("kind", event.target.value)}>
-                <option value="">{vi.form.chooseKind}</option>
-                {LEAVE_KINDS.map((item) => <option key={item} value={item}>{vi.leave.kinds[item]}</option>)}
-              </select>
-            )}
-          </Field>
-          <Field label={vi.leave.startDate} error={errors.startDate}>
-            {(props) => <input {...props} type="date" required value={values.startDate} onChange={(event) => set("startDate", event.target.value)} />}
-          </Field>
-          <Field label={vi.leave.days} error={errors.days} hint={vi.form.daysRange}>
-            {(props) => (
-              <input {...props} type="number" required inputMode="numeric" min={LEAVE_LIMITS.minDays} max={LEAVE_LIMITS.maxDays} step={1} value={values.days} onChange={(event) => set("days", event.target.value)} />
-            )}
-          </Field>
-          <Field label={vi.leave.reason} error={errors.reason} hint={`${vi.form.maxLength(LEAVE_LIMITS.reason)}. ${vi.leave.reasonSensitive}`}>
-            {(props) => (
-              <textarea {...props} required rows={6} maxLength={LEAVE_LIMITS.reason} value={values.reason} onChange={(event) => set("reason", event.target.value)} />
-            )}
-          </Field>
+          <div className="form-section">
+            <h2 className="form-section-title">{vi.leave.sectionPeriod}</h2>
+            <Field label={vi.leave.kind} error={errors.kind}>
+              {(props) => (
+                <select {...props} required value={values.kind} onChange={(event) => set("kind", event.target.value)}>
+                  <option value="">{vi.form.chooseKind}</option>
+                  {LEAVE_KINDS.map((item) => <option key={item} value={item}>{vi.leave.kinds[item]}</option>)}
+                </select>
+              )}
+            </Field>
+            <div className="form-row">
+              <Field label={vi.leave.startDate} error={errors.startDate}>
+                {(props) => <input {...props} type="date" required value={values.startDate} onChange={(event) => set("startDate", event.target.value)} />}
+              </Field>
+              <Field label={vi.leave.days} error={errors.days} hint={vi.form.daysRange}>
+                {(props) => (
+                  <input {...props} type="number" required inputMode="numeric" min={LEAVE_LIMITS.minDays} max={LEAVE_LIMITS.maxDays} step={1} value={values.days} onChange={(event) => set("days", event.target.value)} />
+                )}
+              </Field>
+            </div>
+          </div>
+          <div className="form-section">
+            <h2 className="form-section-title">{vi.leave.sectionReason}</h2>
+            <Field label={vi.leave.reason} error={errors.reason} hint={`${values.reason.length}/${LEAVE_LIMITS.reason} ${vi.form.chars}. ${vi.leave.reasonSensitive}`}>
+              {(props) => (
+                <textarea {...props} required rows={6} maxLength={LEAVE_LIMITS.reason} value={values.reason} onChange={(event) => set("reason", event.target.value)} />
+              )}
+            </Field>
+          </div>
         </fieldset>
         <div className="form-actions">
           <Link className="btn" to={mode === "edit" && record ? `/hr/requests/${record.id}` : "/hr/my-requests"}>{vi.common.cancel}</Link>

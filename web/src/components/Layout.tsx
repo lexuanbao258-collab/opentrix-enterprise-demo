@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
-import { CalendarCheck, CalendarPlus, ClipboardList, FolderTree, LayoutDashboard, LogOut, Menu, PlusCircle, ScrollText, Ticket, Users, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { CalendarCheck, CalendarDays, CalendarPlus, ClipboardList, FolderTree, Headset, LayoutDashboard, LogOut, Menu, PlusCircle, ScrollText, Ticket, Users, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useSession } from "../auth/AuthContext";
 import { vi } from "../i18n/vi";
+import { Logo } from "./Logo";
 
+interface Group { key: string; name: string; icon: ReactNode; to: string; items: NavItem[] }
 interface NavItem { to: string; label: string; icon: ReactNode; end?: boolean }
 
 /** Navigation reflects what the backend allows for the caller (entity.allowedOperations); it is not a security boundary. */
@@ -40,33 +42,62 @@ export function hrNavFor(ops: Record<string, string>, roles: string[]): NavItem[
 export function Layout() {
   const { user, apps, signOut } = useSession();
   const [open, setOpen] = useState(false);
-  const location = useLocation();
-  useEffect(() => setOpen(false), [location.pathname]);
+  const { pathname } = useLocation();
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => setOpen(false), [pathname]);
+
+  // Mobile drawer: Escape closes, focus moves in and returns to the menu button, the page behind cannot scroll,
+  // and the drawer closes when the viewport grows into the desktop layout (where it is always visible).
+  useEffect(() => {
+    if (!open) return;
+    // the drawer is still visibility:hidden for the first frame of its transition, and a hidden element cannot take focus
+    const focusTimer = window.setTimeout(() => closeButton.current?.focus(), 50);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); menuButton.current?.focus(); }
+    };
+    const wide = window.matchMedia?.("(min-width: 861px)");
+    const onWide = () => { if (wide?.matches) setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    wide?.addEventListener?.("change", onWide);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKey);
+      wide?.removeEventListener?.("change", onWide);
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
   // One navigation group per application the caller holds a role in (discovery); headings only when there are several.
-  const groups = [
-    apps.it && { key: "it", name: vi.app.itName, items: navFor({ ticket: apps.it.ticket.allowedOperations, category: apps.it.category.allowedOperations }, apps.it.roles) },
-    apps.hr && { key: "hr", name: vi.app.hrName, items: hrNavFor(apps.hr.leave.allowedOperations, apps.hr.roles) },
-  ].filter((group): group is { key: string; name: string; items: NavItem[] } => Boolean(group));
+  const candidates: (Group | null | undefined)[] = [
+    apps.it && { key: "it", name: vi.app.itName, icon: <Headset size={15} aria-hidden="true" />, to: "/", items: navFor({ ticket: apps.it.ticket.allowedOperations, category: apps.it.category.allowedOperations }, apps.it.roles) },
+    apps.hr && { key: "hr", name: vi.app.hrName, icon: <CalendarDays size={15} aria-hidden="true" />, to: "/hr", items: hrNavFor(apps.hr.leave.allowedOperations, apps.hr.roles) },
+  ];
+  const groups = candidates.filter((group): group is Group => Boolean(group));
+  const current = pathname === "/hr" || pathname.startsWith("/hr/") ? "hr" : "it";
   const roleLabel = [...(apps.it?.roles ?? []), ...(apps.hr?.roles ?? [])].map((role) => vi.roles[role] ?? role).join(", ");
+  const closeMenu = () => { setOpen(false); menuButton.current?.focus(); };
 
   return (
     <div className="shell">
       <a href="#main" className="skip-link">{vi.nav.skip}</a>
       <aside className={`sidebar${open ? " open" : ""}`}>
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">O</span>
-          <div>
+          <Logo />
+          <div className="brand-text">
             <strong>{vi.app.name}</strong>
             <span>{vi.app.tagline}</span>
           </div>
-          <button type="button" className="icon-btn sidebar-close" aria-label={vi.nav.close} onClick={() => setOpen(false)}>
+          <button type="button" ref={closeButton} className="icon-btn sidebar-close" aria-label={vi.nav.close} onClick={closeMenu}>
             <X size={18} aria-hidden="true" />
           </button>
         </div>
         <nav aria-label={vi.nav.main}>
           {groups.map((group) => (
-            <div className="nav-group" key={group.key} data-app={group.key}>
-              {groups.length > 1 && <h2 className="nav-heading" id={`nav-${group.key}`}>{group.name}</h2>}
+            <div className="nav-group" key={group.key} data-app={group.key} data-current={groups.length > 1 && current === group.key}>
+              {groups.length > 1 && <h2 className="nav-heading" id={`nav-${group.key}`}>{group.icon}{group.name}</h2>}
               <ul aria-labelledby={groups.length > 1 ? `nav-${group.key}` : undefined}>
                 {group.items.map((item) => (
                   <li key={item.to}>
@@ -85,19 +116,27 @@ export function Layout() {
               <span>{roleLabel}</span>
             </div>
           </div>
-          <button type="button" className="btn btn-ghost sidebar-logout" onClick={() => void signOut()}>
+          <button type="button" className="btn sidebar-logout" onClick={() => void signOut()}>
             <LogOut size={16} aria-hidden="true" />{vi.auth.signOut}
           </button>
         </div>
       </aside>
-      {open && <button type="button" className="scrim" aria-label={vi.nav.close} onClick={() => setOpen(false)} />}
+      {open && <button type="button" className="scrim" aria-label={vi.nav.close} onClick={closeMenu} />}
       <div className="content">
         <header className="topbar">
-          <button type="button" className="icon-btn menu-btn" aria-label={vi.nav.open} aria-expanded={open} onClick={() => setOpen(true)}>
+          <button type="button" ref={menuButton} className="icon-btn menu-btn" aria-label={vi.nav.open} aria-expanded={open} onClick={() => setOpen(true)}>
             <Menu size={20} aria-hidden="true" />
           </button>
           <Breadcrumb />
-          <span className="topbar-user">{user.name}</span>
+          {groups.length > 1 ? (
+            <nav className="module-switch" aria-label={vi.nav.switchApp}>
+              {groups.map((group) => (
+                <Link key={group.key} to={group.to} aria-current={current === group.key ? "true" : undefined}>{group.icon}{group.name}</Link>
+              ))}
+            </nav>
+          ) : (
+            groups[0] && <span className="module-label">{groups[0].name}</span>
+          )}
         </header>
         <main id="main" tabIndex={-1}>
           <Outlet />

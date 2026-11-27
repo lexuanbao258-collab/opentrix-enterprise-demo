@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, collect } from "../api/client";
 import type { Page, Ticket } from "../api/types";
 import { useReady } from "../auth/AuthContext";
@@ -25,7 +25,8 @@ const CAP = 500;
 export function TicketList({ mode }: { mode: "mine" | "queue" }) {
   const { caps, categories } = useReady();
   const [text, setText] = useState("");
-  const [state, setState] = useState("");
+  const [params] = useSearchParams();
+  const [state, setState] = useState(params.get("state") ?? "");
   const [offset, setOffset] = useState(0);
   const q = useDebounced(text.trim());
   useEffect(() => setOffset(0), [q, state]);
@@ -86,19 +87,21 @@ export function TicketList({ mode }: { mode: "mine" | "queue" }) {
                 <caption className="sr-only">{title}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">{vi.ticket.code}</th><th scope="col">{vi.ticket.title}</th><th scope="col">{vi.ticket.category}</th>
+                    <th scope="col">{vi.ticket.title}</th><th scope="col">{vi.ticket.category}</th>
                     <th scope="col">{vi.ticket.priority}</th><th scope="col">{vi.ticket.state}</th><th scope="col">{vi.common.updated}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.data.page.items.map((item) => (
                     <tr key={item.id}>
-                      <td data-label={vi.ticket.code}><code>{shortId(item.id)}</code></td>
-                      <td data-label={vi.ticket.title} className="cell-title"><Link to={`/tickets/${item.id}`}>{item.data.title}</Link></td>
+                      <td data-label={vi.ticket.title} className="cell-title">
+                        <Link to={`/tickets/${item.id}`}>{item.data.title}</Link>
+                        <span className="cell-sub">{vi.ticket.code} <code>{shortId(item.id)}</code></span>
+                      </td>
                       <td data-label={vi.ticket.category}>{categoryName(categories, item.data.categoryCode) ?? item.data.categoryCode}</td>
                       <td data-label={vi.ticket.priority}><PriorityBadge priority={item.data.priority} label={vi.priority[item.data.priority] ?? item.data.priority} /></td>
                       <td data-label={vi.ticket.state}><StatusBadge state={item.state} label={stateLabel(caps, item.state)} /></td>
-                      <td data-label={vi.common.updated}>{formatDateTime(item.updatedAt)}</td>
+                      <td data-label={vi.common.updated} className="nowrap">{formatDateTime(item.updatedAt)}</td>
                     </tr>
                   ))}
                 </tbody>

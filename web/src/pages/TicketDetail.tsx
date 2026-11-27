@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { HistoryItem, PlatformRecord, Ticket, WorkflowInfo } from "../api/types";
 import { useReady } from "../auth/AuthContext";
+import { ActionPanel, StatusBanner, TechInfo } from "../components/Detail";
 import { HistoryTimeline } from "../components/History";
-import { Alert, Button, ConfirmDialog, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from "../components/ui";
+import { Alert, Button, ConfirmDialog, EmptyState, PageHeader, PriorityBadge, Spinner } from "../components/ui";
 import { isConflict, isUnknownOutcome, messageFor } from "../domain/errors";
 import { formatDateTime, shortId } from "../domain/format";
 import { categoryName, stateLabel, transitionLabel } from "../domain/tickets";
@@ -15,6 +16,10 @@ import { useLoad } from "../hooks/useLoad";
 import { vi } from "../i18n/vi";
 
 interface Bundle { record: PlatformRecord<Ticket>; workflow: WorkflowInfo; history: HistoryItem[] }
+type Confirm = { kind: "delete" } | { kind: "transition"; action: string };
+
+/** Transitions that end the ticket: separated from forward actions and confirmed first. */
+const ENDING = new Set(["cancel", "discard"]);
 
 export function TicketDetail() {
   const { id = "" } = useParams();
@@ -24,7 +29,7 @@ export function TicketDetail() {
   const [flash, setFlash] = useState<string | null>((location.state as { flash?: string } | null)?.flash ?? null);
   const [failure, setFailure] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [unknown, setUnknown] = useState<{ action: string; fromVersion: number } | null>(null);
 
   const data = useLoad<Bundle>(async () => {
@@ -65,6 +70,7 @@ export function TicketDetail() {
       setFailure(error);
     } finally {
       setBusy(null);
+      setConfirm(null);
     }
   }
 
@@ -95,7 +101,7 @@ export function TicketDetail() {
       await api.remove("ticket", id, record.version);
       navigate(ops.read === "all" ? "/tickets" : "/my-requests", { state: { flash: vi.ticket.deleted } });
     } catch (error) {
-      setConfirmDelete(false);
+      setConfirm(null);
       setFailure(error);
     } finally {
       setBusy(null);
@@ -104,18 +110,17 @@ export function TicketDetail() {
 
   const transitions = workflow.allowedActions;
   const conflict = isConflict(failure);
+  const onAction = (action: string) => (ENDING.has(action) ? setConfirm({ kind: "transition", action }) : void runTransition(action));
+  const dialog = confirm?.kind === "transition"
+    ? { title: transitionLabel(caps, confirm.action), message: vi.ticket.confirm[confirm.action] ?? "", label: transitionLabel(caps, confirm.action), busy: busy === confirm.action, run: () => void runTransition(confirm.action) }
+    : { title: vi.common.delete, message: vi.ticket.deleteConfirm, label: vi.common.delete, busy: busy === "delete", run: () => void remove() };
 
   return (
     <>
       <PageHeader
         title={record.data.title}
         subtitle={`${vi.ticket.singular} ${shortId(record.id)}`}
-        actions={
-          <>
-            {canEdit && <Link className="btn" to={`/tickets/${record.id}/edit`}><Pencil size={16} aria-hidden="true" />{vi.common.edit}</Link>}
-            {canDelete && <Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash2 size={16} aria-hidden="true" />{vi.common.delete}</Button>}
-          </>
-        }
+        actions={canEdit ? <Link className="btn" to={`/tickets/${record.id}/edit`}><Pencil size={16} aria-hidden="true" />{vi.common.edit}</Link> : undefined}
       />
       {flash && <Alert tone="success" onClose={() => setFlash(null)}>{flash}</Alert>}
       {failure != null && (
@@ -132,60 +137,47 @@ export function TicketDetail() {
           {messageFor(failure)}
         </Alert>
       )}
+      <StatusBanner state={record.state} label={stateLabel(caps, record.state)} hint={vi.ticket.stateHint[record.state ?? ""]} />
 
       <div className="detail-grid">
-        <section className="card" aria-labelledby="info-h">
+        <section className="card area-info" aria-labelledby="info-h">
           <h2 id="info-h" className="sr-only">{vi.ticket.singular}</h2>
           <dl className="props">
-            <div><dt>{vi.ticket.state}</dt><dd><StatusBadge state={record.state} label={stateLabel(caps, record.state)} /></dd></div>
             <div><dt>{vi.ticket.priority}</dt><dd><PriorityBadge priority={record.data.priority} label={vi.priority[record.data.priority] ?? record.data.priority} /></dd></div>
             <div><dt>{vi.ticket.category}</dt><dd>{categoryName(categories, record.data.categoryCode) ?? record.data.categoryCode}</dd></div>
             <div><dt>{vi.common.created}</dt><dd>{formatDateTime(record.createdAt)}</dd></div>
             <div><dt>{vi.common.updated}</dt><dd>{formatDateTime(record.updatedAt)}</dd></div>
-            <div><dt>{vi.ticket.version}</dt><dd>{record.version}</dd></div>
           </dl>
           <h3>{vi.ticket.description}</h3>
           <p className="prose">{record.data.description}</p>
+          <TechInfo id={record.id} version={record.version} idLabel={vi.common.fullId} versionLabel={vi.ticket.version} />
         </section>
 
-        <aside className="side">
-          <section className="card" aria-labelledby="actions-h">
-            <h2 id="actions-h">{vi.ticket.actionsTitle}</h2>
-            {transitions.length === 0 ? (
-              <p className="muted">{workflow.terminal ? vi.ticket.locked : vi.ticket.noActions}</p>
-            ) : (
-              <div className="action-stack">
-                {transitions.map((action, index) => (
-                  <Button
-                    key={action.id} variant={index === 0 ? "primary" : "secondary"} busy={busy === action.id}
-                    disabled={busy !== null || unknown !== null} data-action={action.id} onClick={() => void runTransition(action.id)}
-                  >
-                    {transitionLabel(caps, action.id)}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {!workflow.editable && !workflow.terminal && <p className="muted small">{vi.ticket.locked}</p>}
-          </section>
+        <ActionPanel
+          actions={transitions} ending={ENDING} labelOf={(action) => transitionLabel(caps, action)} busy={busy} locked={unknown !== null}
+          emptyText={workflow.terminal ? vi.ticket.locked : vi.ticket.noActions} onAction={onAction}
+          onDelete={canDelete ? () => setConfirm({ kind: "delete" }) : undefined}
+        >
+          {!workflow.editable && !workflow.terminal && Boolean(ops.update || ops.delete) && <p className="muted small action-note">{vi.ticket.locked}</p>}
+        </ActionPanel>
 
-          <section className="card" aria-labelledby="history-h">
-            <h2 id="history-h">{vi.ticket.history}</h2>
-            {history.length === 0 ? (
-              <p className="muted">{vi.ticket.historyEmpty}</p>
-            ) : (
-              <HistoryTimeline
-                history={history} createdBy={record.createdBy} stateName={(state) => stateLabel(caps, state)}
-                transitionName={(id) => transitionLabel(caps, id)}
-                labels={{ createdBy: vi.ticket.createdBy, handledBy: vi.ticket.handledBy, machine: vi.ticket.machine }}
-              />
-            )}
-          </section>
-        </aside>
+        <section className="card area-history" aria-labelledby="history-h">
+          <h2 id="history-h">{vi.ticket.history}</h2>
+          {history.length === 0 ? (
+            <p className="muted">{vi.ticket.historyEmpty}</p>
+          ) : (
+            <HistoryTimeline
+              history={history} createdBy={record.createdBy} stateName={(state) => stateLabel(caps, state)}
+              transitionName={(id) => transitionLabel(caps, id)}
+              labels={{ createdBy: vi.ticket.createdBy, handledBy: vi.ticket.handledBy, machine: vi.ticket.machine }}
+            />
+          )}
+        </section>
       </div>
 
       <ConfirmDialog
-        open={confirmDelete} title={vi.common.delete} message={vi.ticket.deleteConfirm} confirmLabel={vi.common.delete}
-        busy={busy === "delete"} onConfirm={() => void remove()} onCancel={() => setConfirmDelete(false)}
+        open={confirm !== null} title={dialog.title} message={dialog.message} confirmLabel={dialog.label}
+        busy={dialog.busy} onConfirm={dialog.run} onCancel={() => setConfirm(null)}
       />
     </>
   );

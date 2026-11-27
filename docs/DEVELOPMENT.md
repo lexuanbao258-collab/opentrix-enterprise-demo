@@ -129,3 +129,17 @@ The BFF never retries a write. Reads that fail show an error with a Retry button
 * The session store is in memory (single BFF instance, sessions lost on restart). Use a shared store to scale out.
 * Add rate limiting and monitoring in front of the BFF; rotate `OIDC_CLIENT_SECRET`.
 * Replace demo users and the Keycloak dev mode.
+
+## 6. Demonstration data (M6.2)
+
+`e2e/scripts/seed-demo.ts` writes a small, curated, fictional Vietnamese dataset (5 service categories, 16 IT tickets and
+10 leave requests across every supported state) **through the public API** with the demo identities. It never touches
+the database and uses stable ids, so re-running it is idempotent. Run it only against a **separate, disposable** stack, never
+the one used for regression tests (those records are fixtures, not product data):
+
+```bash
+# a separate project and ports, e.g. ESM_STACK_PROJECT=opentrix-esm-demo ESM_PLATFORM_HTTPS_PORT=18844 ESM_KEYCLOAK_PORT=18880 ESM_PORT=18874
+deploy/platform-stack.sh up && deploy/provision-keycloak.sh      # then start the BFF (deploy/run-bff-local.sh)
+(cd e2e && npx playwright test --project=setup && npx tsx scripts/seed-demo.ts)
+(cd e2e && npx tsx scripts/shots-m62.ts after)                   # representative desktop + mobile screenshots
+```

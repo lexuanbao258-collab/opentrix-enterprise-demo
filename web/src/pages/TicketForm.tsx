@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { PlatformRecord, Ticket } from "../api/types";
 import { useReady } from "../auth/AuthContext";
-import { Alert, Button, EmptyState, Field, PageHeader, Spinner } from "../components/ui";
+import { Alert, Button, EmptyState, Field, PageHeader, Spinner, focusFirstInvalid } from "../components/ui";
 import { fieldErrors, isUnknownOutcome, messageFor } from "../domain/errors";
 import { PRIORITIES, TICKET_LIMITS, validateTicket } from "../domain/tickets";
 import { useLoad } from "../hooks/useLoad";
@@ -54,6 +54,7 @@ function FormBody({ mode, record }: { mode: "new" | "edit"; record: PlatformReco
   const [notice, setNotice] = useState<string | null>(null);
   // Stable per form instance: an explicit retry of an unknown create reuses the id, so the Platform can deduplicate it.
   const createId = useRef<string>(crypto.randomUUID());
+  const formRef = useRef<HTMLFormElement>(null);
   const version = useRef<number>(record?.version ?? 0);
 
   const active = categories.filter((item) => item.data.active);
@@ -102,7 +103,7 @@ function FormBody({ mode, record }: { mode: "new" | "edit"; record: PlatformReco
     };
     const problems = validateTicket(payload);
     setErrors(problems);
-    if (Object.keys(problems).length) return;
+    if (Object.keys(problems).length) return focusFirstInvalid(formRef.current);
     void run(intent, payload as Ticket);
   }
 
@@ -170,34 +171,42 @@ function FormBody({ mode, record }: { mode: "new" | "edit"; record: PlatformReco
       {notice && !unknown && <Alert tone="info">{notice}</Alert>}
       {notice && unknown && <Alert tone="info">{notice}</Alert>}
 
-      <form className="card form" noValidate onSubmit={(event) => onSubmit(event, "draft")} aria-label={title}>
+      <form ref={formRef} className="card form" noValidate onSubmit={(event) => onSubmit(event, "draft")} aria-label={title}>
         <fieldset disabled={locked || busy !== null}>
-          <Field label={vi.ticket.title} error={errors.title}>
-            {(props) => (
-              <input {...props} type="text" required maxLength={TICKET_LIMITS.title} value={values.title ?? ""} onChange={(event) => set("title", event.target.value)} />
-            )}
-          </Field>
-          <Field label={vi.ticket.category} error={errors.categoryCode} hint={active.length === 0 ? vi.form.noActiveCategory : undefined}>
-            {(props) => (
-              <select {...props} required value={values.categoryCode ?? ""} onChange={(event) => set("categoryCode", event.target.value)}>
-                <option value="">{vi.form.chooseCategory}</option>
-                {!hasCurrent && <option value={current}>{current} ({vi.ticket.categoryMissing})</option>}
-                {options.map((item) => <option key={item.id} value={item.data.code}>{item.data.name}</option>)}
-              </select>
-            )}
-          </Field>
-          <Field label={vi.ticket.priority} error={errors.priority}>
-            {(props) => (
-              <select {...props} required value={values.priority ?? ""} onChange={(event) => set("priority", event.target.value as Ticket["priority"])}>
-                {PRIORITIES.map((item) => <option key={item} value={item}>{vi.priority[item]}</option>)}
-              </select>
-            )}
-          </Field>
-          <Field label={vi.ticket.description} error={errors.description} hint={vi.form.maxLength(TICKET_LIMITS.description)}>
-            {(props) => (
-              <textarea {...props} required rows={8} maxLength={TICKET_LIMITS.description} value={values.description ?? ""} onChange={(event) => set("description", event.target.value)} />
-            )}
-          </Field>
+          <div className="form-section">
+            <h2 className="form-section-title">{vi.ticket.sectionGeneral}</h2>
+            <Field label={vi.ticket.title} error={errors.title}>
+              {(props) => (
+                <input {...props} type="text" required maxLength={TICKET_LIMITS.title} value={values.title ?? ""} onChange={(event) => set("title", event.target.value)} />
+              )}
+            </Field>
+            <div className="form-row">
+              <Field label={vi.ticket.category} error={errors.categoryCode} hint={active.length === 0 ? vi.form.noActiveCategory : undefined}>
+                {(props) => (
+                  <select {...props} required value={values.categoryCode ?? ""} onChange={(event) => set("categoryCode", event.target.value)}>
+                    <option value="">{vi.form.chooseCategory}</option>
+                    {!hasCurrent && <option value={current}>{current} ({vi.ticket.categoryMissing})</option>}
+                    {options.map((item) => <option key={item.id} value={item.data.code}>{item.data.name}</option>)}
+                  </select>
+                )}
+              </Field>
+              <Field label={vi.ticket.priority} error={errors.priority}>
+                {(props) => (
+                  <select {...props} required value={values.priority ?? ""} onChange={(event) => set("priority", event.target.value as Ticket["priority"])}>
+                    {PRIORITIES.map((item) => <option key={item} value={item}>{vi.priority[item]}</option>)}
+                  </select>
+                )}
+              </Field>
+            </div>
+          </div>
+          <div className="form-section">
+            <h2 className="form-section-title">{vi.ticket.sectionDetail}</h2>
+            <Field label={vi.ticket.description} error={errors.description} hint={`${(values.description ?? "").length}/${TICKET_LIMITS.description} ${vi.form.chars}`}>
+              {(props) => (
+                <textarea {...props} required rows={8} maxLength={TICKET_LIMITS.description} value={values.description ?? ""} onChange={(event) => set("description", event.target.value)} />
+              )}
+            </Field>
+          </div>
         </fieldset>
         <div className="form-actions">
           <Link className="btn" to={mode === "edit" && record ? `/tickets/${record.id}` : "/my-requests"}>{vi.common.cancel}</Link>

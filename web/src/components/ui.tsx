@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { AlertCircle, CheckCircle2, Info, Loader2, X } from "lucide-react";
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { vi } from "../i18n/vi";
 
-type Variant = "primary" | "secondary" | "danger" | "ghost";
+type Variant = "primary" | "secondary" | "danger" | "danger-solid" | "ghost";
 
 export function Button({
   variant = "secondary", busy = false, children, className = "", disabled, ...rest
@@ -69,12 +70,27 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   );
 }
 
+/** Semantic tone per workflow state: amber waits for someone, blue is being worked on, teal awaits confirmation, green is done, red is refused, grey is inactive. */
 const STATE_TONE: Record<string, string> = {
   PENDING: "warning", APPROVED: "success", REJECTED: "danger",
-  DRAFT: "neutral", SUBMITTED: "info", IN_PROGRESS: "warning", RESOLVED: "accent", CLOSED: "success", CANCELLED: "muted",
+  DRAFT: "neutral", SUBMITTED: "warning", IN_PROGRESS: "info", RESOLVED: "accent", CLOSED: "success", CANCELLED: "muted",
 };
-export function StatusBadge({ state, label }: { state: string | null; label: string }) {
-  return <span className={`badge badge-${STATE_TONE[state ?? ""] ?? "neutral"}`} data-state={state ?? ""}>{label}</span>;
+export const stateTone = (state: string | null) => STATE_TONE[state ?? ""] ?? "neutral";
+export function StatusBadge({ state, label, large }: { state: string | null; label: string; large?: boolean }) {
+  return <span className={`badge badge-${stateTone(state)}${large ? " badge-lg" : ""}`} data-state={state ?? ""}>{label}</span>;
+}
+
+/** Dashboard counter. A link when it leads to a filtered list. */
+export function Tile({ label, value, tone, testId, to }: { label: string; value: number; tone: string; testId: string; to?: string }) {
+  const body = (
+    <>
+      <span className="tile-label">{label}</span>
+      <strong className="tile-value">{value}</strong>
+    </>
+  );
+  return to
+    ? <Link className="tile" to={to} data-tone={tone} data-testid={testId}>{body}</Link>
+    : <div className="tile" data-tone={tone} data-testid={testId}>{body}</div>;
 }
 
 const PRIORITY_TONE: Record<string, string> = { LOW: "muted", NORMAL: "neutral", HIGH: "warning", URGENT: "danger" };
@@ -100,6 +116,7 @@ export function Pagination({ offset, limit, total, onChange }: { offset: number;
       <span className="muted" aria-live="polite">{vi.common.page(from, to, total)}</span>
       <div className="pager-buttons">
         <Button disabled={offset <= 0} onClick={() => onChange(Math.max(0, offset - limit))}>{vi.common.prev}</Button>
+        <span className="pager-pos">{vi.common.pageOf(Math.floor(offset / limit) + 1, Math.ceil(total / limit))}</span>
         <Button disabled={offset + limit >= total} onClick={() => onChange(offset + limit)}>{vi.common.next}</Button>
       </div>
     </nav>
@@ -126,6 +143,7 @@ export function ConfirmDialog({
   open, title, message, confirmLabel, busy, onConfirm, onCancel,
 }: { open: boolean; title: string; message: string; confirmLabel: string; busy?: boolean; onConfirm: () => void; onCancel: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
@@ -133,13 +151,18 @@ export function ConfirmDialog({
     if (!open && dialog.open) dialog.close?.();
   }, [open]);
   return (
-    <dialog ref={ref} className="dialog" onCancel={(event) => { event.preventDefault(); onCancel(); }} aria-labelledby="dialog-title">
-      <h2 id="dialog-title">{title}</h2>
+    <dialog ref={ref} className="dialog" onCancel={(event) => { event.preventDefault(); onCancel(); }} aria-labelledby={titleId}>
+      <h2 id={titleId}>{title}</h2>
       <p>{message}</p>
       <div className="dialog-actions">
         <Button onClick={onCancel}>{vi.common.cancel}</Button>
-        <Button variant="danger" busy={busy} onClick={onConfirm}>{confirmLabel}</Button>
+        <Button variant="danger-solid" busy={busy} onClick={onConfirm}>{confirmLabel}</Button>
       </div>
     </dialog>
   );
+}
+
+/** After a failed client-side validation, move focus to the first invalid field so keyboard and screen-reader users land on the problem. */
+export function focusFirstInvalid(form: HTMLFormElement | null) {
+  requestAnimationFrame(() => form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
 }

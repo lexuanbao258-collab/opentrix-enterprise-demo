@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { Link, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth, useReady, useSession } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
+import { Logo } from "./components/Logo";
 import { Alert, Button, EmptyState, Spinner } from "./components/ui";
 import { messageFor } from "./domain/errors";
 import { vi } from "./i18n/vi";
@@ -20,7 +21,7 @@ import { TicketForm } from "./pages/TicketForm";
 import { TicketList } from "./pages/TicketList";
 
 function Centered({ children }: { children: ReactNode }) {
-  return <div className="centered"><div className="card narrow">{children}</div></div>;
+  return <div className="centered"><div className="card narrow"><div className="signin-logo"><Logo size={40} /></div>{children}</div></div>;
 }
 
 /** Route guard on the same capability the backend reports; the backend still rejects unauthorized calls. */

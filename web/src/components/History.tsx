@@ -20,9 +20,9 @@ export function HistoryTimeline({
   transitionName: (id: string) => string;
   labels: HistoryLabels;
 }) {
+  // The full actor id is not meaningful to people: the role label is shown and the id tail stays available as a tooltip.
   const actor = (item: HistoryItem) =>
-    item.actorType === "MACHINE" ? `${labels.machine} …${item.actorId.slice(-6)}`
-      : item.actorId === createdBy ? labels.createdBy : `${labels.handledBy} …${item.actorId.slice(-6)}`;
+    item.actorType === "MACHINE" ? labels.machine : item.actorId === createdBy ? labels.createdBy : labels.handledBy;
   return (
     <ol className="timeline">
       {history.map((item, index) => (
@@ -33,7 +33,7 @@ export function HistoryTimeline({
               {item.transitionId ? transitionName(item.transitionId) : vi.audit.actions[item.action] ?? item.action}
               {item.toState && <> → {stateName(item.toState)}</>}
             </strong>
-            <span className="muted">{actor(item)} · {formatDateTime(item.occurredAt)}</span>
+            <span className="muted"><span title={`…${item.actorId.slice(-6)}`}>{actor(item)}</span> · {formatDateTime(item.occurredAt)}</span>
           </div>
         </li>
       ))}

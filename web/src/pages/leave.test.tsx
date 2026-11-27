@@ -269,7 +269,7 @@ describe("LeaveList", () => {
     expect(await screen.findByText("BBBBBBBB")).toBeInTheDocument();
     expect(screen.getByText("AAAAAAAA")).toBeInTheDocument();
     expect(screen.queryByText("CCCCCCCC")).not.toBeInTheDocument();
-    expect(screen.getByText("Đơn của bạn")).toBeInTheDocument();
+    expect(screen.getByText("Bạn")).toBeInTheDocument();
   });
 
   it("says so when the scan is truncated (no false global statistics)", async () => {

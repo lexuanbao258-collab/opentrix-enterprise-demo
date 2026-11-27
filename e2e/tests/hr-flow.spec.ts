@@ -127,7 +127,7 @@ test.describe.serial("HR Leave: employee, manager approval, auditor", () => {
       await page.getByRole("searchbox").fill(`Tự duyệt ${RUN}`);
       const row = page.locator("tr", { has: page.locator(`a[href="/hr/requests/${selfRequest}"]`) });
       await expect(row).toBeVisible();
-      await expect(row).toContainText("Đơn của bạn");
+      await expect(row).toContainText("Bạn");
 
       // direct API: the Platform refuses, and the record is unchanged
       const api = (await apiLogin("dual")).forApp(HR);

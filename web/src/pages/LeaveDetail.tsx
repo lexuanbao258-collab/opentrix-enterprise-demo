@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError, hrApi } from "../api/client";
 import type { HistoryItem, LeaveRequest, PlatformRecord, WorkflowInfo } from "../api/types";
 import { useHr } from "../auth/AuthContext";
+import { ActionPanel, StatusBanner, TechInfo } from "../components/Detail";
 import { HistoryTimeline } from "../components/History";
-import { Alert, Button, ConfirmDialog, EmptyState, PageHeader, Spinner, StatusBadge } from "../components/ui";
+import { Alert, Button, ConfirmDialog, EmptyState, PageHeader, Spinner } from "../components/ui";
 import { isConflict, isUnknownOutcome, messageFor } from "../domain/errors";
 import { formatDate, formatDateTime, shortId } from "../domain/format";
 import { leaveStateLabel, leaveTransitionLabel } from "../domain/leave";
@@ -17,8 +18,8 @@ import { vi } from "../i18n/vi";
 interface Bundle { record: PlatformRecord<LeaveRequest>; workflow: WorkflowInfo; history: HistoryItem[] }
 type Confirm = { kind: "delete" } | { kind: "transition"; action: string };
 
-/** Transitions that end the request or cannot be undone ask for confirmation first. */
-const CONFIRMED = new Set(["reject", "withdraw", "discard"]);
+/** Transitions that end the request: separated from forward actions, never primary, and confirmed first. */
+const ENDING = new Set(["reject", "withdraw", "discard"]);
 
 export function LeaveDetail() {
   const { id = "" } = useParams();
@@ -104,7 +105,7 @@ export function LeaveDetail() {
     }
   }
 
-  const onAction = (action: string) => (CONFIRMED.has(action) ? setConfirm({ kind: "transition", action }) : void runTransition(action));
+  const onAction = (action: string) => (ENDING.has(action) ? setConfirm({ kind: "transition", action }) : void runTransition(action));
   const conflict = isConflict(failure);
   const dialog = confirm?.kind === "transition"
     ? { title: leaveTransitionLabel(hr, confirm.action), message: vi.leave.confirm[confirm.action] ?? "", label: leaveTransitionLabel(hr, confirm.action), busy: busy === confirm.action, run: () => void runTransition(confirm.action) }
@@ -115,12 +116,7 @@ export function LeaveDetail() {
       <PageHeader
         title={`${vi.leave.kinds[record.data.kind] ?? record.data.kind} · ${vi.leave.daysUnit(record.data.days)}`}
         subtitle={`${vi.leave.singular} ${shortId(record.id)}`}
-        actions={
-          <>
-            {canEdit && <Link className="btn" to={`/hr/requests/${record.id}/edit`}><Pencil size={16} aria-hidden="true" />{vi.common.edit}</Link>}
-            {canDelete && <Button variant="danger" onClick={() => setConfirm({ kind: "delete" })}><Trash2 size={16} aria-hidden="true" />{vi.common.delete}</Button>}
-          </>
-        }
+        actions={canEdit ? <Link className="btn" to={`/hr/requests/${record.id}/edit`}><Pencil size={16} aria-hidden="true" />{vi.common.edit}</Link> : undefined}
       />
       {flash && <Alert tone="success" onClose={() => setFlash(null)}>{flash}</Alert>}
       {failure != null && (
@@ -137,58 +133,45 @@ export function LeaveDetail() {
           {messageFor(failure)}
         </Alert>
       )}
+      <StatusBanner state={record.state} label={leaveStateLabel(hr, record.state)} hint={vi.leave.stateHint[record.state ?? ""]} />
 
       <div className="detail-grid">
-        <section className="card" aria-labelledby="info-h">
+        <section className="card area-info" aria-labelledby="info-h">
           <h2 id="info-h" className="sr-only">{vi.leave.singular}</h2>
           <dl className="props">
-            <div><dt>{vi.leave.state}</dt><dd><StatusBadge state={record.state} label={leaveStateLabel(hr, record.state)} /></dd></div>
             <div><dt>{vi.leave.kind}</dt><dd>{vi.leave.kinds[record.data.kind] ?? record.data.kind}</dd></div>
             <div><dt>{vi.leave.startDate}</dt><dd>{formatDate(record.data.startDate)}</dd></div>
             <div><dt>{vi.leave.days}</dt><dd>{record.data.days}</dd></div>
-            <div><dt>{vi.leave.owner}</dt><dd>{own ? vi.leave.own : `…${record.createdBy.slice(-6)}`}</dd></div>
+            <div><dt>{vi.leave.owner}</dt><dd title={own ? undefined : `…${record.createdBy.slice(-6)}`}>{own ? vi.leave.you : vi.leave.otherEmployee}</dd></div>
             <div><dt>{vi.common.created}</dt><dd>{formatDateTime(record.createdAt)}</dd></div>
             <div><dt>{vi.common.updated}</dt><dd>{formatDateTime(record.updatedAt)}</dd></div>
-            <div><dt>{vi.leave.version}</dt><dd>{record.version}</dd></div>
           </dl>
           <h3>{vi.leave.reason}</h3>
           <p className="prose" data-testid="leave-reason">{record.data.reason}</p>
+          <TechInfo id={record.id} version={record.version} idLabel={vi.common.fullId} versionLabel={vi.leave.version} />
         </section>
 
-        <aside className="side">
-          <section className="card" aria-labelledby="actions-h">
-            <h2 id="actions-h">{vi.leave.actionsTitle}</h2>
-            {actions.length === 0 ? (
-              <p className="muted">{workflow.terminal ? vi.leave.locked : vi.leave.noActions}</p>
-            ) : (
-              <div className="action-stack">
-                {actions.map((action, index) => (
-                  <Button
-                    key={action.id} variant={index === 0 ? "primary" : "secondary"} busy={busy === action.id}
-                    disabled={busy !== null || unknown !== null} data-action={action.id} onClick={() => onAction(action.id)}
-                  >
-                    {leaveTransitionLabel(hr, action.id)}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {selfApprovalBlocked && <p className="muted small" data-testid="self-approval-note">{vi.leave.selfApproval}</p>}
-            {!workflow.editable && !workflow.terminal && <p className="muted small">{vi.leave.locked}</p>}
-          </section>
+        <ActionPanel
+          actions={actions} ending={ENDING} labelOf={(action) => leaveTransitionLabel(hr, action)} busy={busy} locked={unknown !== null}
+          emptyText={workflow.terminal ? vi.leave.locked : vi.leave.noActions} onAction={onAction}
+          onDelete={canDelete ? () => setConfirm({ kind: "delete" }) : undefined}
+        >
+          {selfApprovalBlocked && <p className="muted small action-note" data-testid="self-approval-note">{vi.leave.selfApproval}</p>}
+          {!workflow.editable && !workflow.terminal && Boolean(ops.update || ops.delete) && <p className="muted small action-note">{vi.leave.locked}</p>}
+        </ActionPanel>
 
-          <section className="card" aria-labelledby="history-h">
-            <h2 id="history-h">{vi.leave.history}</h2>
-            {history.length === 0 ? (
-              <p className="muted">{vi.leave.historyEmpty}</p>
-            ) : (
-              <HistoryTimeline
-                history={history} createdBy={record.createdBy} stateName={(state) => leaveStateLabel(hr, state)}
-                transitionName={(action) => leaveTransitionLabel(hr, action)}
-                labels={{ createdBy: vi.leave.owner, handledBy: vi.leave.handledBy, machine: vi.ticket.machine }}
-              />
-            )}
-          </section>
-        </aside>
+        <section className="card area-history" aria-labelledby="history-h">
+          <h2 id="history-h">{vi.leave.history}</h2>
+          {history.length === 0 ? (
+            <p className="muted">{vi.leave.historyEmpty}</p>
+          ) : (
+            <HistoryTimeline
+              history={history} createdBy={record.createdBy} stateName={(state) => leaveStateLabel(hr, state)}
+              transitionName={(action) => leaveTransitionLabel(hr, action)}
+              labels={{ createdBy: vi.leave.owner, handledBy: vi.leave.handledBy, machine: vi.ticket.machine }}
+            />
+          )}
+        </section>
       </div>
 
       <ConfirmDialog

@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
 import { crumbsFor, navFor } from "../components/Layout";
 import { ticket } from "../test/fixtures";
+import { formatDate, formatDateTime } from "./format";
 import { fieldErrors, isConflict, isUnknownOutcome, messageFor } from "./errors";
-import { countByState, validateCategory, validateTicket } from "./tickets";
+import { byUrgency, countByState, validateCategory, validateTicket } from "./tickets";
 
 describe("error messages", () => {
   it("never shows raw server text and covers the contract codes", () => {
@@ -56,5 +57,24 @@ describe("navigation follows backend-reported capabilities", () => {
     expect(crumbsFor(`/tickets/${id}`, false).map((c) => c.to)).toEqual(["/", "/my-requests", `/tickets/${id}`]);
     expect(crumbsFor(`/tickets/${id}`, true).map((c) => c.to)).toEqual(["/", "/tickets", `/tickets/${id}`]);
     expect(crumbsFor("/tickets/new", false).map((c) => c.to)).toEqual(["/", "/my-requests", "/tickets/new"]);
+  });
+});
+
+describe("date formatting", () => {
+  it("formats a calendar date as dd/mm/yyyy without time-zone conversion", () => {
+    expect(formatDate("2026-12-22")).toBe("22/12/2026");
+    expect(formatDate("not a date")).toBe("not a date");
+  });
+  it("puts the date before the time", () => {
+    expect(formatDateTime("2026-11-27T09:41:00Z")).toMatch(/^\d{2}\/\d{2}\/2026 \d{2}:\d{2}$/);
+    expect(formatDateTime("garbage")).toBe("garbage");
+  });
+});
+
+describe("ticket urgency order", () => {
+  it("sorts urgent first, then the most recently updated", () => {
+    const make = (id: string, priority: "LOW" | "URGENT" | "HIGH", updatedAt: string) => ticket({ id, updatedAt, data: { title: id, description: "d", categoryCode: "X", priority } });
+    const sorted = [make("a", "LOW", "2026-01-03T00:00:00Z"), make("b", "URGENT", "2026-01-01T00:00:00Z"), make("c", "HIGH", "2026-01-02T00:00:00Z"), make("d", "HIGH", "2026-01-04T00:00:00Z")].sort(byUrgency);
+    expect(sorted.map((item) => item.id)).toEqual(["b", "d", "c", "a"]);
   });
 });
