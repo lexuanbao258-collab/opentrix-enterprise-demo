@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import type { HistoryItem, PlatformRecord, Ticket, WorkflowInfo } from "../api/types";
 import { useReady } from "../auth/AuthContext";
+import { HistoryTimeline } from "../components/History";
 import { Alert, Button, ConfirmDialog, EmptyState, PageHeader, PriorityBadge, Spinner, StatusBadge } from "../components/ui";
 import { isConflict, isUnknownOutcome, messageFor } from "../domain/errors";
 import { formatDateTime, shortId } from "../domain/format";
@@ -14,11 +15,6 @@ import { useLoad } from "../hooks/useLoad";
 import { vi } from "../i18n/vi";
 
 interface Bundle { record: PlatformRecord<Ticket>; workflow: WorkflowInfo; history: HistoryItem[] }
-
-function actorLabel(item: HistoryItem, createdBy: string): string {
-  if (item.actorType === "MACHINE") return `${vi.ticket.machine} …${item.actorId.slice(-6)}`;
-  return item.actorId === createdBy ? vi.ticket.createdBy : `${vi.ticket.handledBy} …${item.actorId.slice(-6)}`;
-}
 
 export function TicketDetail() {
   const { id = "" } = useParams();
@@ -177,20 +173,11 @@ export function TicketDetail() {
             {history.length === 0 ? (
               <p className="muted">{vi.ticket.historyEmpty}</p>
             ) : (
-              <ol className="timeline">
-                {history.map((item, index) => (
-                  <li key={`${item.recordVersion}-${index}`} data-testid="history-item">
-                    <span className="dot" aria-hidden="true" />
-                    <div>
-                      <strong>
-                        {item.transitionId ? transitionLabel(caps, item.transitionId) : vi.audit.actions[item.action] ?? item.action}
-                        {item.toState && <> → {stateLabel(caps, item.toState)}</>}
-                      </strong>
-                      <span className="muted">{actorLabel(item, record.createdBy)} · {formatDateTime(item.occurredAt)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <HistoryTimeline
+                history={history} createdBy={record.createdBy} stateName={(state) => stateLabel(caps, state)}
+                transitionName={(id) => transitionLabel(caps, id)}
+                labels={{ createdBy: vi.ticket.createdBy, handledBy: vi.ticket.handledBy, machine: vi.ticket.machine }}
+              />
             )}
           </section>
         </aside>

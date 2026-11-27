@@ -4,9 +4,10 @@ import type {
   AppInfo, AuditPage, EntityInfo, HistoryItem, Page, PlatformRecord, WorkflowInfo,
 } from "./types";
 
-/** The application the BFF is allowed to reach; the BFF enforces this too. */
-export const APP_ID = "it-helpdesk";
-const BASE = `/bff/api/v1/apps/${APP_ID}`;
+/** Platform applications that ESM modules use. The BFF allowlists exactly these (bff/src/routes.ts). */
+export const IT_APP = "it-helpdesk";
+export const HR_APP = "hr-leave";
+const BASE = "/bff/api/v1/apps";
 
 export type ProblemCode =
   | "SESSION_EXPIRED" | "VALIDATION_FAILED" | "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "STATE_LOCKED"
@@ -70,30 +71,41 @@ async function send<T>(method: string, path: string, body?: unknown, query?: Rec
   throw error;
 }
 
-export const api = {
-  app: () => send<AppInfo>("GET", ""),
-  entity: (entity: string) => send<EntityInfo>("GET", `/entities/${entity}`),
+/** One client per Platform application: the same transport, CSRF handling and error mapping for every ESM module. */
+export function createApi(appId: string) {
+  const root = `/${appId}`;
+  return {
+    app: () => send<AppInfo>("GET", root),
+    entity: (entity: string) => send<EntityInfo>("GET", `${root}/entities/${entity}`),
 
-  list: <T>(entity: string, params: { q?: string; limit?: number; offset?: number } = {}) =>
-    send<Page<T>>("GET", `/entities/${entity}/records`, undefined, params),
-  get: <T>(entity: string, id: string) => send<PlatformRecord<T>>("GET", `/entities/${entity}/records/${id}`),
+    list: <T>(entity: string, params: { q?: string; limit?: number; offset?: number } = {}) =>
+      send<Page<T>>("GET", `${root}/entities/${entity}/records`, undefined, params),
+    get: <T>(entity: string, id: string) => send<PlatformRecord<T>>("GET", `${root}/entities/${entity}/records/${id}`),
 
-  /** `id` is generated once by the caller so that an explicit retry of an unknown create is idempotent. */
-  create: <T>(entity: string, id: string, data: T) =>
-    send<PlatformRecord<T>>("POST", `/entities/${entity}/records`, { id, data }),
-  update: <T>(entity: string, id: string, expectedVersion: number, data: T) =>
-    send<PlatformRecord<T>>("PUT", `/entities/${entity}/records/${id}`, { expectedVersion, data }),
-  remove: (entity: string, id: string, expectedVersion: number) =>
-    send<void>("DELETE", `/entities/${entity}/records/${id}`, undefined, { expectedVersion }),
+    /** `id` is generated once by the caller so that an explicit retry of an unknown create is idempotent. */
+    create: <T>(entity: string, id: string, data: T) =>
+      send<PlatformRecord<T>>("POST", `${root}/entities/${entity}/records`, { id, data }),
+    update: <T>(entity: string, id: string, expectedVersion: number, data: T) =>
+      send<PlatformRecord<T>>("PUT", `${root}/entities/${entity}/records/${id}`, { expectedVersion, data }),
+    remove: (entity: string, id: string, expectedVersion: number) =>
+      send<void>("DELETE", `${root}/entities/${entity}/records/${id}`, undefined, { expectedVersion }),
 
-  workflow: (entity: string, id: string) => send<WorkflowInfo>("GET", `/entities/${entity}/records/${id}/workflow`),
-  history: (entity: string, id: string) => send<HistoryItem[]>("GET", `/entities/${entity}/records/${id}/history`),
-  transition: <T>(entity: string, id: string, transition: string, expectedVersion: number) =>
-    send<PlatformRecord<T>>("POST", `/entities/${entity}/records/${id}/transitions/${transition}`, { expectedVersion }),
+    workflow: (entity: string, id: string) => send<WorkflowInfo>("GET", `${root}/entities/${entity}/records/${id}/workflow`),
+    history: (entity: string, id: string) => send<HistoryItem[]>("GET", `${root}/entities/${entity}/records/${id}/history`),
+    transition: <T>(entity: string, id: string, transition: string, expectedVersion: number) =>
+      send<PlatformRecord<T>>("POST", `${root}/entities/${entity}/records/${id}/transitions/${transition}`, { expectedVersion }),
 
-  audit: (entity: string, params: { recordId?: string; limit?: number; offset?: number } = {}) =>
-    send<AuditPage>("GET", `/entities/${entity}/audit`, undefined, params),
-};
+    audit: (entity: string, params: { recordId?: string; limit?: number; offset?: number } = {}) =>
+      send<AuditPage>("GET", `${root}/entities/${entity}/audit`, undefined, params),
+  };
+}
+export type AppApi = ReturnType<typeof createApi>;
+
+export const api = createApi(IT_APP);
+export const hrApi = createApi(HR_APP);
+
+/** Application discovery: the applications in which the caller holds a role. */
+export const discoverApps = () => send<AppInfo[]>("GET", "");
 
 export interface Collected<T> {
   items: PlatformRecord<T>[];
@@ -106,13 +118,14 @@ export interface Collected<T> {
  * The API has no aggregate endpoint. This reads authorized pages (100 per call) up to `cap` records,
  * so callers can show exact numbers when `truncated` is false and must label the scope when it is true.
  */
-export async function collect<T>(entity: string, options: { q?: string; cap?: number } = {}): Promise<Collected<T>> {
+export async function collect<T>(entity: string, options: { q?: string; cap?: number; client?: AppApi } = {}): Promise<Collected<T>> {
+  const client = options.client ?? api;
   const cap = options.cap ?? 500;
-  const first = await api.list<T>(entity, { q: options.q, limit: 100, offset: 0 });
+  const first = await client.list<T>(entity, { q: options.q, limit: 100, offset: 0 });
   const wanted = Math.min(first.total, cap);
   const offsets: number[] = [];
   for (let offset = 100; offset < wanted; offset += 100) offsets.push(offset);
-  const rest = await Promise.all(offsets.map((offset) => api.list<T>(entity, { q: options.q, limit: 100, offset })));
+  const rest = await Promise.all(offsets.map((offset) => client.list<T>(entity, { q: options.q, limit: 100, offset })));
   const items = [first, ...rest].flatMap((page) => page.items).slice(0, cap);
   return { items, total: first.total, truncated: first.total > items.length };
 }

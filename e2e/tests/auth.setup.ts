@@ -7,7 +7,7 @@ import { statePath } from "../support/state";
 
 mkdirSync(new URL("../../.local/auth", import.meta.url), { recursive: true });
 
-for (const role of ["requester1", "requester2", "agent", "admin"] as Role[]) {
+for (const role of ["requester1", "requester2", "agent", "admin", "employee1", "employee2", "manager", "auditor", "dual"] as Role[]) {
   setup(`sign in as ${role} through Keycloak`, async ({ page }) => {
     const { username, password } = credentials(role);
     await page.goto("/");

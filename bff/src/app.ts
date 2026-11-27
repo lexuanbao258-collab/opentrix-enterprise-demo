@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { Config } from "./config.js";
-import type { OidcPort } from "./oidc.js";
+import { platformActorId, type OidcPort } from "./oidc.js";
 import { cleanQuery, matchRoute } from "./routes.js";
 import { type Session, SessionStore } from "./sessions.js";
 
@@ -116,7 +116,7 @@ export function createApp({ config, oidc, sessions, fetchImpl = fetch }: Deps) {
     res.setHeader("Cache-Control", "no-store");
     const session = current(req);
     if (!session) return void res.json({ authenticated: false });
-    res.json({ authenticated: true, user: { name: session.user.name, username: session.user.username }, csrfToken: session.csrf });
+    res.json({ authenticated: true, user: { id: platformActorId(session.user.iss, session.user.sub), name: session.user.name, username: session.user.username }, csrfToken: session.csrf });
   });
 
   /** State-changing requests need the session, the CSRF token and a same-origin Origin header. */
@@ -164,7 +164,7 @@ export function createApp({ config, oidc, sessions, fetchImpl = fetch }: Deps) {
   app.all(/^\/bff\/api\/.*/, rawBody, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const url = new URL(req.originalUrl, config.publicOrigin);
-    const route = matchRoute(req.method, url.pathname, config.appId);
+    const route = matchRoute(req.method, url.pathname);
     if (!route) return problem(res, 404, "NOT_FOUND", "Resource not found");
     const session = current(req);
     if (!session) return problem(res, 401, "SESSION_EXPIRED", "Session ended; sign in again");
@@ -182,7 +182,7 @@ export function createApp({ config, oidc, sessions, fetchImpl = fetch }: Deps) {
       clearSession(res);
       return problem(res, 401, "SESSION_EXPIRED", "Session ended; sign in again");
     }
-    const target = `${config.platformApiUrl}/api/v1/apps/${config.appId}${route.tail}${cleanQuery(url.searchParams)}`;
+    const target = `${config.platformApiUrl}/api/v1/apps${route.upstream}${cleanQuery(url.searchParams)}`;
     try {
       const upstream = await fetchImpl(target, {
         method: req.method,

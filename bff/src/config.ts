@@ -9,7 +9,6 @@ export interface Config {
   oidcClientId: string;
   oidcClientSecret: string;
   platformApiUrl: string;
-  appId: string;
   cookieSecure: boolean;
   sessionIdleMs: number;
   sessionMaxMs: number;
@@ -44,7 +43,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     oidcClientId: env.OIDC_CLIENT_ID?.trim() || "esm-bff",
     oidcClientSecret: required(env, "OIDC_CLIENT_SECRET"),
     platformApiUrl,
-    appId: env.ESM_APP_ID?.trim() || "it-helpdesk",
     cookieSecure: secure,
     sessionIdleMs: Number(env.ESM_SESSION_IDLE_SECONDS ?? 1800) * 1000,
     sessionMaxMs: Number(env.ESM_SESSION_MAX_SECONDS ?? 28800) * 1000,

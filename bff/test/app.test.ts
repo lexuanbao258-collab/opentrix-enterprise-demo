@@ -4,7 +4,7 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import type { Config } from "../src/config.js";
-import type { OidcPort, TokenSet } from "../src/oidc.js";
+import { platformActorId, type OidcPort, type TokenSet } from "../src/oidc.js";
 import { matchRoute, cleanQuery } from "../src/routes.js";
 import { SessionStore } from "../src/sessions.js";
 
@@ -12,7 +12,7 @@ const ORIGIN = "http://localhost:5174";
 const UUID = "0b3f6d7e-1c2a-4f5b-9d8e-123456789abc";
 const config: Config = {
   port: 0, host: "127.0.0.1", publicOrigin: ORIGIN, oidcIssuer: "http://kc.test/realms/r", oidcClientId: "esm-bff",
-  oidcClientSecret: "s", platformApiUrl: "https://platform.test", appId: "it-helpdesk", cookieSecure: false,
+  oidcClientSecret: "s", platformApiUrl: "https://platform.test", cookieSecure: false,
   sessionIdleMs: 60_000, sessionMaxMs: 600_000, staticDir: null,
 };
 
@@ -23,7 +23,7 @@ function tokens(expiresInMs = 300_000): TokenSet {
 function fakeOidc(overrides: Partial<OidcPort> = {}): OidcPort {
   return {
     startLogin: async () => ({ url: "http://kc.test/auth?x=1", codeVerifier: "v", state: "st", nonce: "n" }),
-    finishLogin: async () => ({ tokens: tokens(), user: { sub: "u1", name: "Nguyen A", username: "a" } }),
+    finishLogin: async () => ({ tokens: tokens(), user: { sub: "u1", iss: "http://kc.test/realms/r", name: "Nguyen A", username: "a" } }),
     refresh: async () => ({ ...tokens(), accessToken: "AT-2" }),
     logoutUrl: async (idToken) => `http://kc.test/logout?id_token_hint=${idToken}`,
     ...overrides,
@@ -74,7 +74,7 @@ describe("login and session", () => {
     const cookies = (res.headers["set-cookie"] as unknown as string[]).join("\n");
     expect(cookies).toMatch(/esm_sid=[^;]+; Path=\/; HttpOnly; SameSite=Lax/);
     const session = await agent.get("/bff/session").expect(200);
-    expect(session.body).toMatchObject({ authenticated: true, user: { name: "Nguyen A", username: "a" } });
+    expect(session.body).toMatchObject({ authenticated: true, user: { id: platformActorId("http://kc.test/realms/r", "u1"), name: "Nguyen A", username: "a" } });
     expect(csrf).toBeTruthy();
     expect(JSON.stringify(session.body)).not.toMatch(/AT-1|RT-1|IDT/);
     expect(session.headers["cache-control"]).toBe("no-store");
@@ -165,13 +165,19 @@ describe("Platform API proxy", () => {
     const { agent, seen } = harness();
     const { csrf } = await login(agent);
     const w = (r: request.Test) => r.set("Origin", ORIGIN).set("X-CSRF-Token", csrf);
-    await agent.get("/bff/api/v1/apps").expect(404);
-    await agent.get("/bff/api/v1/apps/hr-leave/entities/leaveRequest/records").expect(404);
-    await agent.get("/bff/api/v1/apps/it-helpdesk/../hr-leave").expect(404);
+    await agent.get("/bff/api/v1/apps/other-app/entities/ticket/records").expect(404);
+    await w(agent.post("/bff/api/v1/apps")).send({}).expect(404);
+    await agent.get("/bff/api/v1/apps/it-helpdesk/../other-app").expect(404);
     await agent.get("/bff/api/v1/apps/it-helpdesk/entities/ticket/records/not-a-uuid").expect(404);
     await w(agent.delete(records)).expect(404);
     await w(agent.put(records)).send({}).expect(404);
     await agent.get("/bff/api/v1/apps/it-helpdesk/entities/ticket/anything").expect(404);
+    // Cross-app: an entity or transition of one ESM module is never reachable through the other module.
+    await agent.get("/bff/api/v1/apps/hr-leave/entities/ticket/records").expect(404);
+    await agent.get("/bff/api/v1/apps/it-helpdesk/entities/leaveRequest/records").expect(404);
+    await w(agent.post(`/bff/api/v1/apps/hr-leave/entities/leaveRequest/records/${UUID}/transitions/start`)).send({ expectedVersion: 0 }).expect(404);
+    await w(agent.post(`/bff/api/v1/apps/it-helpdesk/entities/ticket/records/${UUID}/transitions/approve`)).send({ expectedVersion: 0 }).expect(404);
+    await w(agent.post(`/bff/api/v1/apps/hr-leave/entities/leaveRequest/records/${UUID}/transitions/..%2Fx`)).send({}).expect(404);
     expect(seen).toHaveLength(0);
     for (const tail of ["", "/entities/ticket", `/entities/ticket/records/${UUID}/workflow`, `/entities/ticket/records/${UUID}/history`, "/entities/ticket/audit"]) {
       await agent.get(`/bff/api/v1/apps/it-helpdesk${tail}`).expect(200);
@@ -179,6 +185,23 @@ describe("Platform API proxy", () => {
     await w(agent.post(`/bff/api/v1/apps/it-helpdesk/entities/ticket/records/${UUID}/transitions/submit`)).send({ expectedVersion: 0 }).expect(200);
     await w(agent.delete(`${records}/${UUID}?expectedVersion=3`)).expect(200);
     expect(seen.at(-1)?.url).toContain(`/records/${UUID}?expectedVersion=3`);
+  });
+
+  it("serves discovery and the HR Leave application, with the caller's own token", async () => {
+    const { agent, seen } = harness();
+    const { csrf } = await login(agent);
+    const w = (r: request.Test) => r.set("Origin", ORIGIN).set("X-CSRF-Token", csrf);
+    await agent.get("/bff/api/v1/apps").expect(200);
+    await agent.get("/bff/api/v1/apps/hr-leave").expect(200);
+    const hr = "/bff/api/v1/apps/hr-leave/entities/leaveRequest";
+    for (const tail of ["", "/records", `/records/${UUID}`, `/records/${UUID}/workflow`, `/records/${UUID}/history`, "/audit"]) await agent.get(`${hr}${tail}`).expect(200);
+    await w(agent.post(`${hr}/records`)).send({ id: UUID, data: {} }).expect(200);
+    for (const transition of ["submit", "discard", "withdraw", "approve", "reject"]) {
+      await w(agent.post(`${hr}/records/${UUID}/transitions/${transition}`)).send({ expectedVersion: 1 }).expect(200);
+    }
+    expect(seen.map((s) => s.url)).toContain("https://platform.test/api/v1/apps");
+    expect(seen.map((s) => s.url)).toContain(`https://platform.test/api/v1/apps/hr-leave/entities/leaveRequest/records/${UUID}`);
+    expect(seen.every((s) => s.headers.Authorization === "Bearer AT-1")).toBe(true);
   });
 
   it("treats a write that fails after sending as COMMIT_OUTCOME_UNKNOWN and never retries", async () => {
@@ -232,13 +255,13 @@ describe("Platform API proxy", () => {
 
   it("refreshes a token about to expire once, and ends the session if refresh fails", async () => {
     const refresh = vi.fn(async () => ({ ...tokens(), accessToken: "AT-2" }));
-    const first = harness({ oidc: fakeOidc({ finishLogin: async () => ({ tokens: tokens(5_000), user: { sub: "u", name: "n", username: "u" } }), refresh }) });
+    const first = harness({ oidc: fakeOidc({ finishLogin: async () => ({ tokens: tokens(5_000), user: { sub: "u", iss: "http://kc.test/realms/r", name: "n", username: "u" } }), refresh }) });
     await login(first.agent);
     await Promise.all([first.agent.get(records), first.agent.get(records)]);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(first.seen.every((s) => s.headers.Authorization === "Bearer AT-2")).toBe(true);
 
-    const failing = harness({ oidc: fakeOidc({ finishLogin: async () => ({ tokens: tokens(5_000), user: { sub: "u", name: "n", username: "u" } }), refresh: async () => { throw new Error("revoked"); } }) });
+    const failing = harness({ oidc: fakeOidc({ finishLogin: async () => ({ tokens: tokens(5_000), user: { sub: "u", iss: "http://kc.test/realms/r", name: "n", username: "u" } }), refresh: async () => { throw new Error("revoked"); } }) });
     await login(failing.agent);
     expect((await failing.agent.get(records).expect(401)).body.code).toBe("SESSION_EXPIRED");
     expect(failing.seen).toHaveLength(0);
@@ -252,12 +275,23 @@ describe("Platform API proxy", () => {
   });
 });
 
+describe("Platform actor id", () => {
+  it("follows the documented canonical form oidc:base64url(iss).base64url(sub), unpadded (verified against a live createdBy)", () => {
+    expect(platformActorId("http://localhost:8180/realms/tricore", "b042e3d9-0f24-4f99-ae37-0d09f79e4c3c")).toBe(
+      "oidc:aHR0cDovL2xvY2FsaG9zdDo4MTgwL3JlYWxtcy90cmljb3Jl.YjA0MmUzZDktMGYyNC00Zjk5LWFlMzctMGQwOWY3OWU0YzNj",
+    );
+  });
+});
+
 describe("route allowlist helpers", () => {
   it("matches only contract routes", () => {
     const p = "/bff/api/v1/apps/it-helpdesk";
-    expect(matchRoute("GET", `${p}/entities/ticket/records`, "it-helpdesk")).toEqual({ tail: "/entities/ticket/records" });
-    expect(matchRoute("PATCH", `${p}/entities/ticket/records/${UUID}`, "it-helpdesk")).toBeNull();
-    expect(matchRoute("GET", `${p}/entities/ti%2Fcket/records`, "it-helpdesk")).toBeNull();
+    expect(matchRoute("GET", `${p}/entities/ticket/records`)).toEqual({ upstream: "/it-helpdesk/entities/ticket/records" });
+    expect(matchRoute("PATCH", `${p}/entities/ticket/records/${UUID}`)).toBeNull();
+    expect(matchRoute("GET", `${p}/entities/ti%2Fcket/records`)).toBeNull();
+    expect(matchRoute("GET", "/bff/api/v1/apps")).toEqual({ upstream: "" });
+    expect(matchRoute("DELETE", "/bff/api/v1/apps")).toBeNull();
+    expect(matchRoute("GET", "/bff/api/v1/apps/hr-leave/entities/leaveRequest/audit")).toEqual({ upstream: "/hr-leave/entities/leaveRequest/audit" });
   });
   it("keeps only contract query keys", () => {
     expect(cleanQuery(new URLSearchParams("q=a&limit=1&token=x&recordId=1"))).toBe("?q=a&limit=1&recordId=1");

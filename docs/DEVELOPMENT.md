@@ -10,11 +10,16 @@ SPDX-License-Identifier: Apache-2.0
 ESM calls the Platform only through the published contract (`docs/api/openapi-v1.json` in the Platform repository,
 baseline `f401b6e79930a1386e71e92a91ae6a909cfa1e59`). It needs:
 
-1. A Platform deployment with `it-helpdesk` **1.1.0** registered (`manifests/it-helpdesk/app.json`).
+1. A Platform deployment with `it-helpdesk` **1.1.0** and `hr-leave` **1.1.0** registered (`manifests/*/app.json`;
+   `hr-leave` is the Platform baseline's manifest, unmodified).
 2. An OIDC provider whose access tokens carry audience `tricore-api` and the client roles
-   `it-helpdesk:requester|agent|admin` in `resource_access.tricore-api.roles` (Keycloak realm `tricore` in the demo).
+   `it-helpdesk:requester|agent|admin` and `hr-leave:employee|manager|auditor` in `resource_access.tricore-api.roles`
+   (Keycloak realm `tricore` in the demo; the HR roles already exist in the realm).
 3. A Keycloak client for the ESM BFF (`deploy/keycloak/provision-esm.sh` creates `esm-bff`: confidential,
-   Authorization Code + PKCE S256, no direct grants, full scope off, role scope limited to the three helpdesk roles).
+   Authorization Code + PKCE S256, no direct grants, full scope off, role scope limited to the six IT and HR roles).
+
+Adding another ESM module means: its manifest under `manifests/`, its roles in the client's role scope, one entry in
+`ALLOWED_APPS` (`bff/src/routes.ts`: entities and transitions), and its pages under `web/src/pages`. No Platform change.
 
 ESM never reads the Platform database. The only database access in this repository is `deploy/db-snapshot.sh`, an
 **operator evidence script** that is not part of the application.
@@ -50,7 +55,24 @@ deploy/run-bff-local.sh            # BFF + built SPA on http://localhost:5174
 # development: (cd bff && npm run dev) and (cd web && npm run dev)  -> Vite proxies /bff to 127.0.0.1:5174
 ```
 
-Demo users (passwords are random, in `.local/esm.env`): `esm-requester1`, `esm-requester2`, `esm-agent`, `esm-admin`.
+Demo users (passwords are random, in `.local/esm.env`):
+
+| User | Roles | Use |
+| --- | --- | --- |
+| `esm-requester1`, `esm-requester2` | it-helpdesk:requester | IT only |
+| `esm-agent`, `esm-admin` | it-helpdesk:agent / admin | IT only |
+| `esm-employee1`, `esm-employee2` | hr-leave:employee | HR only |
+| `esm-manager` | hr-leave:manager | HR only; approves/rejects |
+| `esm-auditor` | hr-leave:auditor | HR only; reads the audit trail |
+| `esm-dual` | it-helpdesk:requester + hr-leave:employee + hr-leave:manager | both modules; cannot approve own leave request |
+
+`deploy/provision-keycloak.sh` is idempotent and appends the HR passwords to an existing `.local/esm.env` without
+touching existing secrets.
+
+How the SPA decides what to show: it calls `GET /bff/api/v1/apps` (Platform discovery: only applications in which the
+caller holds a role), then per application `GET app` / `GET entity` (`allowedOperations`) and, per record,
+`GET workflow` (`allowedActions`). The signed-in user's Platform actor id (`oidc:b64url(iss).b64url(sub)`, as documented
+in the Platform `docs/API.md`) is returned by `/bff/session` so the UI can tell which records a user created.
 
 ## 3. Manifest upgrade (1.0.0 -> 1.1.0) and rules
 

@@ -11,6 +11,10 @@ Reused from the OpenTrix Platform candidate, retaining attribution:
  - apps/it-helpdesk/app.json (manifest 1.0.0, Apache-2.0, TRICORE contributors) is the basis of
    manifests/it-helpdesk/app.json (1.1.0). The `category` entity is carried over unchanged;
    deploy/fixtures/manifests-1.0.0/it-helpdesk/app.json is a byte copy of the 1.0.0 file used by the upgrade test.
+ - apps/hr-leave/app.json (manifest 1.1.0, Apache-2.0 per the file's own "license" field and the Platform REUSE.toml, "2026 TRICORE contributors",
+   Platform baseline f401b6e79930a1386e71e92a91ae6a909cfa1e59) is packaged UNMODIFIED as manifests/hr-leave/app.json
+   (byte-identical, sha256 0f717f2b7f92638757b7742ef6d2a8d4ca661eadb985a06b0208cab468fc2d90) so the Platform's documented
+   controlled registration step (platform-migrate) can register it from this repository's manifest directory.
  - Patterns (not code) from the Platform Portal BFF: server-side OIDC sessions, CSRF, explicit route allowlist,
    and the Platform client conventions (expectedVersion, COMMIT_OUTCOME_UNKNOWN handling).
  - Font "Be Vietnam Pro" (@fontsource/be-vietnam-pro, SIL Open Font License 1.1), as in the Platform Portal.

@@ -5,14 +5,21 @@ import { readFileSync } from "node:fs";
 import { request, type APIRequestContext } from "@playwright/test";
 
 export const BASE_URL = process.env.ESM_PUBLIC_ORIGIN ?? "http://localhost:5174";
-const APP = "/bff/api/v1/apps/it-helpdesk";
+export const IT = "it-helpdesk";
+export const HR = "hr-leave";
 
-export type Role = "requester1" | "requester2" | "agent" | "admin";
+/** IT Helpdesk roles (M3) and HR Leave roles (M4). `dual` holds it-helpdesk:requester + hr-leave:employee + hr-leave:manager. */
+export type Role = "requester1" | "requester2" | "agent" | "admin" | "employee1" | "employee2" | "manager" | "auditor" | "dual";
 const USERS: Record<Role, { username: string; env: string }> = {
   requester1: { username: "esm-requester1", env: "ESM_PASSWORD_REQUESTER1" },
   requester2: { username: "esm-requester2", env: "ESM_PASSWORD_REQUESTER2" },
   agent: { username: "esm-agent", env: "ESM_PASSWORD_AGENT" },
   admin: { username: "esm-admin", env: "ESM_PASSWORD_ADMIN" },
+  employee1: { username: "esm-employee1", env: "ESM_PASSWORD_EMPLOYEE1" },
+  employee2: { username: "esm-employee2", env: "ESM_PASSWORD_EMPLOYEE2" },
+  manager: { username: "esm-manager", env: "ESM_PASSWORD_MANAGER" },
+  auditor: { username: "esm-auditor", env: "ESM_PASSWORD_AUDITOR" },
+  dual: { username: "esm-dual", env: "ESM_PASSWORD_DUAL" },
 };
 
 /** Passwords come from the environment or the git-ignored .local/esm.env. Never hardcoded. */
@@ -36,10 +43,30 @@ export class Api {
   constructor(
     readonly context: APIRequestContext,
     readonly csrf: string,
+    /** Platform application this client talks to (through the BFF allowlist). */
+    readonly app: string = IT,
   ) {}
 
+  /** The same signed-in user (same session and CSRF token), addressing another application. */
+  forApp(app: string): Api {
+    return new Api(this.context, this.csrf, app);
+  }
+
+  /** Raw path below /bff/api/v1/apps, for discovery and cross-app probes. */
+  async raw<T = any>(method: string, path: string, body?: unknown): Promise<Reply<T>> {
+    const response = await this.context.fetch(`/bff/api/v1/apps${path}`, {
+      method,
+      headers: method === "GET" ? {} : { Origin: BASE_URL, "X-CSRF-Token": this.csrf },
+      data: body,
+      failOnStatusCode: false,
+      maxRedirects: 0,
+    });
+    const text = await response.text();
+    return { status: response.status(), body: text ? JSON.parse(text) : null };
+  }
+
   async call<T = any>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Reply<T>> {
-    const response = await this.context.fetch(`${APP}${path}`, {
+    const response = await this.context.fetch(`/bff/api/v1/apps/${this.app}${path}`, {
       method,
       headers: method === "GET" ? headers : { Origin: BASE_URL, "X-CSRF-Token": this.csrf, ...headers },
       data: body === undefined ? undefined : body,

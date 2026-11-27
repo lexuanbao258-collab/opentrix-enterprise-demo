@@ -1,0 +1,15 @@
+M4 Platform source-diff evidence (2026-11-27T06:04:30Z)
+Platform repo HEAD: f401b6e79930a1386e71e92a91ae6a909cfa1e59
+Baseline:           f401b6e79930a1386e71e92a91ae6a909cfa1e59
+git status --porcelain (empty = clean):
+git diff --stat f401b6e79930a1386e71e92a91ae6a909cfa1e59 HEAD (whole repository, committed changes):
+(end)
+git diff --stat f401b6e79930a1386e71e92a91ae6a909cfa1e59 (working tree vs baseline, whole repository, tracked files):
+(end)
+git diff --numstat f401b6e79930a1386e71e92a91ae6a909cfa1e59 -- backend portal-bff frontend apps infra clients docs/api scripts (runtime source, schema, API, deployment):
+(end)
+git ls-files --others --exclude-standard (untracked, excluding ignored):
+(end)
+diff -r baseline-archive vs stack checkout used for acceptance (/d/olp/opentrix-platform-f401b6e):
+IDENTICAL
+hr-leave manifest: sha256 baseline=0f717f2b7f92638757b7742ef6d2a8d4ca661eadb985a06b0208cab468fc2d90 esm=0f717f2b7f92638757b7742ef6d2a8d4ca661eadb985a06b0208cab468fc2d90

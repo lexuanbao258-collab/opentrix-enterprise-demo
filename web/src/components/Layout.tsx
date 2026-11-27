@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 // SPDX-License-Identifier: Apache-2.0
-import { ClipboardList, FolderTree, LayoutDashboard, LogOut, Menu, PlusCircle, ScrollText, Ticket, X } from "lucide-react";
+import { CalendarCheck, CalendarPlus, ClipboardList, FolderTree, LayoutDashboard, LogOut, Menu, PlusCircle, ScrollText, Ticket, Users, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { useReady } from "../auth/AuthContext";
+import { useSession } from "../auth/AuthContext";
 import { vi } from "../i18n/vi";
 
 interface NavItem { to: string; label: string; icon: ReactNode; end?: boolean }
@@ -24,13 +24,30 @@ export function navFor(ops: { ticket: Record<string, string>; category: Record<s
   return items;
 }
 
+/** HR Leave navigation, from the backend-reported operations on `leaveRequest` and the caller's roles. */
+export function hrNavFor(ops: Record<string, string>, roles: string[]): NavItem[] {
+  const items: NavItem[] = [{ to: "/hr", label: vi.nav.hrDashboard, icon: <LayoutDashboard size={18} aria-hidden="true" />, end: true }];
+  if (ops.create) {
+    items.push({ to: "/hr/my-requests", label: vi.nav.hrMine, icon: <ClipboardList size={18} aria-hidden="true" /> });
+    items.push({ to: "/hr/requests/new", label: vi.nav.hrNew, icon: <CalendarPlus size={18} aria-hidden="true" /> });
+  }
+  if (roles.includes("manager")) items.push({ to: "/hr/approvals", label: vi.nav.hrApprovals, icon: <CalendarCheck size={18} aria-hidden="true" /> });
+  if (ops.read === "all") items.push({ to: "/hr/requests", label: vi.nav.hrAll, icon: <Users size={18} aria-hidden="true" />, end: true });
+  if (ops.audit) items.push({ to: "/hr/audit", label: vi.nav.hrAudit, icon: <ScrollText size={18} aria-hidden="true" /> });
+  return items;
+}
+
 export function Layout() {
-  const { user, caps, signOut } = useReady();
+  const { user, apps, signOut } = useSession();
   const [open, setOpen] = useState(false);
   const location = useLocation();
   useEffect(() => setOpen(false), [location.pathname]);
-  const items = navFor({ ticket: caps.ticket.allowedOperations, category: caps.category.allowedOperations }, caps.roles);
-  const roleLabel = caps.roles.map((role) => vi.roles[role] ?? role).join(", ");
+  // One navigation group per application the caller holds a role in (discovery); headings only when there are several.
+  const groups = [
+    apps.it && { key: "it", name: vi.app.itName, items: navFor({ ticket: apps.it.ticket.allowedOperations, category: apps.it.category.allowedOperations }, apps.it.roles) },
+    apps.hr && { key: "hr", name: vi.app.hrName, items: hrNavFor(apps.hr.leave.allowedOperations, apps.hr.roles) },
+  ].filter((group): group is { key: string; name: string; items: NavItem[] } => Boolean(group));
+  const roleLabel = [...(apps.it?.roles ?? []), ...(apps.hr?.roles ?? [])].map((role) => vi.roles[role] ?? role).join(", ");
 
   return (
     <div className="shell">
@@ -47,13 +64,18 @@ export function Layout() {
           </button>
         </div>
         <nav aria-label={vi.nav.main}>
-          <ul>
-            {items.map((item) => (
-              <li key={item.to}>
-                <NavLink to={item.to} end={item.end}>{item.icon}<span>{item.label}</span></NavLink>
-              </li>
-            ))}
-          </ul>
+          {groups.map((group) => (
+            <div className="nav-group" key={group.key} data-app={group.key}>
+              {groups.length > 1 && <h2 className="nav-heading" id={`nav-${group.key}`}>{group.name}</h2>}
+              <ul aria-labelledby={groups.length > 1 ? `nav-${group.key}` : undefined}>
+                {group.items.map((item) => (
+                  <li key={item.to}>
+                    <NavLink to={item.to} end={item.end}>{item.icon}<span>{item.label}</span></NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
         <div className="sidebar-foot">
           <div className="profile" aria-label={vi.auth.profile}>
@@ -114,10 +136,28 @@ export function crumbsFor(pathname: string, staff: boolean): { to: string; label
   return crumbs;
 }
 
+export function hrCrumbsFor(pathname: string): { to: string; label: string }[] {
+  const [, first, second, third] = pathname.split("/");
+  const crumbs = [{ to: "/hr", label: vi.app.hrName }];
+  if (first === "my-requests") crumbs.push({ to: "/hr/my-requests", label: vi.nav.hrMine });
+  else if (first === "approvals") crumbs.push({ to: "/hr/approvals", label: vi.nav.hrApprovals });
+  else if (first === "audit") crumbs.push({ to: "/hr/audit", label: vi.nav.hrAudit });
+  else if (first === "requests") {
+    if (second === "new") crumbs.push({ to: "/hr/requests/new", label: vi.nav.hrNew });
+    else if (second) {
+      crumbs.push({ to: `/hr/requests/${second}`, label: `${vi.leave.singular} ${second.slice(0, 8).toUpperCase()}` });
+      if (third === "edit") crumbs.push({ to: `/hr/requests/${second}/edit`, label: vi.common.edit });
+    } else crumbs.push({ to: "/hr/requests", label: vi.nav.hrAll });
+  }
+  return crumbs;
+}
+
 export function Breadcrumb() {
   const { pathname } = useLocation();
-  const { caps } = useReady();
-  const crumbs = crumbsFor(pathname, caps.ticket.allowedOperations.read === "all");
+  const { apps } = useSession();
+  const crumbs = pathname === "/hr" || pathname.startsWith("/hr/")
+    ? hrCrumbsFor(pathname.slice(3))
+    : crumbsFor(pathname, apps.it?.ticket.allowedOperations.read === "all");
   return (
     <nav aria-label="Breadcrumb" className="breadcrumb">
       <ol>

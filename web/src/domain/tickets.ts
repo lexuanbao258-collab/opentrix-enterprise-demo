@@ -28,7 +28,7 @@ export interface Counts {
   counted: number;
 }
 
-export function countByState(items: PlatformRecord<Ticket>[]): Counts {
+export function countByState(items: PlatformRecord<unknown>[]): Counts {
   const byState: Record<string, number> = {};
   for (const item of items) byState[item.state ?? "?"] = (byState[item.state ?? "?"] ?? 0) + 1;
   return { byState, counted: items.length };

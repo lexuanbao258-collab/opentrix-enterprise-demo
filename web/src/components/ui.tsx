@@ -70,6 +70,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 }
 
 const STATE_TONE: Record<string, string> = {
+  PENDING: "warning", APPROVED: "success", REJECTED: "danger",
   DRAFT: "neutral", SUBMITTED: "info", IN_PROGRESS: "warning", RESOLVED: "accent", CLOSED: "success", CANCELLED: "muted",
 };
 export function StatusBadge({ state, label }: { state: string | null; label: string }) {

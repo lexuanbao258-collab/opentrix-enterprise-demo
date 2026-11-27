@@ -3,14 +3,17 @@ SPDX-FileCopyrightText: 2026 OpenTrix ESM contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# OpenTrix ESM — IT Helpdesk
+# OpenTrix ESM — IT Helpdesk and HR Leave
 
 OpenTrix ESM is an **independent enterprise service management application**. It is built on the public API of the
 [OpenTrix Platform](https://github.com/lexuanbao258-collab/opentrix-v1-candidate) (Enterprise Application Foundation)
 and does not modify, import or share a database with it.
 
 This repository delivers **M3: IT Helpdesk** — service categories, support tickets, a role-based ticket workflow,
-history and audit — as a React + TypeScript application with its own backend-for-frontend (BFF).
+history and audit — and **M4: HR Leave** — leave requests with a manager approval workflow, history and an auditor-only
+audit view — as one React + TypeScript application with its own backend-for-frontend (BFF). Both modules use the same
+shell, API client, forms, tables, workflow actions, history/audit components and BFF security; each user sees only the
+modules in which the Platform says they hold a role.
 
 > Candidate status: demo quality on a local stack. Not production-ready (see [Known limitations](docs/evidence/M3-evidence.md#known-limitations)).
 
@@ -24,8 +27,8 @@ Browser ──HTTPS/HTTP──> ESM BFF (Node) ──Bearer token (server-side)�
 
 | Part | Directory | What it is |
 | --- | --- | --- |
-| Application manifest | `manifests/it-helpdesk/app.json` | `it-helpdesk` **1.1.0**: `category` (unchanged from 1.0.0) + new `ticket` entity and workflow |
-| BFF | `bff/` | Express 5 + `openid-client`: Authorization Code + PKCE, server-side sessions, CSRF, allowlist proxy |
+| Application manifests | `manifests/it-helpdesk/app.json`, `manifests/hr-leave/app.json` | `it-helpdesk` **1.1.0**: `category` (unchanged from 1.0.0) + `ticket` entity and workflow. `hr-leave` **1.1.0**: the Platform baseline's manifest, byte-identical |
+| BFF | `bff/` | Express 5 + `openid-client`: Authorization Code + PKCE, server-side sessions, CSRF, per-application allowlist proxy |
 | Web | `web/` | React 19 + Vite + TypeScript SPA, Vietnamese-first |
 | E2E | `e2e/` | Playwright against real PostgreSQL + Keycloak + Platform |
 | Deployment helpers | `deploy/` | Platform stack overlay, Keycloak client/user provisioning, upgrade checks |
@@ -47,6 +50,28 @@ DRAFT ──submit──> SUBMITTED ──start──> IN_PROGRESS ──resolve
 | edit / delete | requester, own ticket, only in `DRAFT` (other states are locked) |
 | read | requester: own tickets; agent and administrator: all |
 | audit | administrator only; the ticket description is marked `sensitive` and is redacted in audit |
+
+## Leave request workflow (HR Leave; enforced by the Platform)
+
+```
+DRAFT ──submit──> PENDING ──approve──> APPROVED
+  │                  │   └──reject───> REJECTED
+  └──discard──┐      └──withdraw──┐
+              v                   v
+           CANCELLED          CANCELLED
+```
+
+| Transition | Who (manifest) |
+| --- | --- |
+| `submit`, `discard`, `withdraw` | employee, only for requests they created (`own`) |
+| `approve`, `reject` | manager, any request, **never the request's creator** (`notByCreator`) |
+| edit / delete | employee, own request, only in `DRAFT` |
+| read | employee: own; manager and auditor: all |
+| audit | auditor only; the leave reason is `sensitive` and is redacted in audit |
+
+A person holding both `employee` and `manager` can create requests but the Platform refuses (403) their own
+approve/reject; another manager must decide. The Platform has no leave balances, calendars or approver routing: ESM does
+not pretend otherwise.
 
 The Platform does **not** provide assignee-based authorization, referential integrity between entities, comments
 or aggregates. ESM does not pretend otherwise: tickets store a category *code*, there is no assignee, and dashboard

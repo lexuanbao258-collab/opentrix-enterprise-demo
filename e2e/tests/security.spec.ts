@@ -66,11 +66,16 @@ test.describe("authentication", () => {
     expect(list.body.items.filter((item: any) => item.data.title.includes("csrf"))).toHaveLength(0);
   });
 
-  test("the BFF forwards only the it-helpdesk allowlist", async () => {
-    for (const path of ["/bff/api/v1/apps", "/bff/api/v1/apps/hr-leave", "/bff/api/v1/apps/hr-leave/entities/leaveRequest/records", "/bff/api/v1/health"]) {
+  test("the BFF forwards only the allowlisted applications, entities and transitions (see hr-security.spec.ts for HR)", async () => {
+    for (const path of [
+      "/bff/api/v1/health", "/bff/api/v1/apps/other-app", "/bff/api/v1/apps/other-app/entities/ticket/records",
+      "/bff/api/v1/apps/it-helpdesk/entities/leaveRequest/records", "/bff/api/v1/apps/hr-leave/entities/ticket/records",
+      "/bff/api/v1/apps/it-helpdesk/entities/ticket/records/x",
+    ]) {
       const response = await apis.admin.context.get(path, { failOnStatusCode: false });
       expect(response.status(), path).toBe(404);
     }
+    expect((await apis.admin.raw("DELETE", "")).status).toBe(404);
   });
 });
 

@@ -106,3 +106,11 @@ export interface Category {
   description?: string;
   active: boolean;
 }
+
+/** Entity `leaveRequest` of the `hr-leave` application (manifest 1.1.0). `reason` is marked sensitive by the Platform. */
+export interface LeaveRequest {
+  kind: "ANNUAL" | "SICK" | "UNPAID";
+  startDate: string;
+  days: number;
+  reason: string;
+}

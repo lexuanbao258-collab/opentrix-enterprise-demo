@@ -19,6 +19,8 @@ export interface LoginStart {
 
 export interface UserClaims {
   sub: string;
+  /** Issuer of the verified ID token. */
+  iss: string;
   name: string;
   username: string;
 }
@@ -32,6 +34,15 @@ export interface OidcPort {
   ): Promise<{ tokens: TokenSet; user: UserClaims }>;
   refresh(refreshToken: string): Promise<TokenSet>;
   logoutUrl(idToken: string | null): Promise<string>;
+}
+
+/**
+ * The Platform's canonical actor id (docs/API.md of the baseline): `oidc:base64url(UTF8(iss)).base64url(UTF8(sub))`, no padding.
+ * It is what `createdBy` and history `actorId` contain, so the SPA can tell which records the signed-in user created.
+ */
+export function platformActorId(iss: string, sub: string): string {
+  const enc = (value: string) => Buffer.from(value, "utf8").toString("base64url");
+  return `oidc:${enc(iss)}.${enc(sub)}`;
 }
 
 function toTokens(response: client.TokenEndpointResponse): TokenSet {
@@ -86,7 +97,7 @@ export function createOidc(config: Config): OidcPort {
       if (!claims?.sub) throw new Error("ID token without subject");
       const username = typeof claims.preferred_username === "string" ? claims.preferred_username : claims.sub;
       const name = typeof claims.name === "string" && claims.name ? claims.name : username;
-      return { tokens: toTokens(response), user: { sub: claims.sub, name, username } };
+      return { tokens: toTokens(response), user: { sub: claims.sub, iss: claims.iss, name, username } };
     },
     async refresh(refreshToken) {
       const cfg = await settings();

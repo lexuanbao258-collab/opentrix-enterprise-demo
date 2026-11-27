@@ -59,6 +59,8 @@ code { font: 500 .85em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 .sidebar nav a { display: flex; align-items: center; gap: .7rem; padding: .6rem .75rem; border-radius: 7px; color: var(--nav-ink); text-decoration: none; font-weight: 500; }
 .sidebar nav a:hover { background: rgb(255 255 255 / 8%); }
 .sidebar nav a.active { background: #2b3f6b; color: #fff; }
+.nav-group + .nav-group { margin-top: 1rem; }
+.nav-heading { margin: 0 0 .35rem; padding: 0 .75rem; font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #aab6cf; }
 .sidebar-foot { padding: .9rem 1rem 1rem; border-top: 1px solid rgb(255 255 255 / 10%); display: grid; gap: .6rem; }
 .profile { display: flex; gap: .65rem; align-items: center; min-width: 0; }
 .profile strong { display: block; color: #fff; font-size: .88rem; overflow-wrap: anywhere; }

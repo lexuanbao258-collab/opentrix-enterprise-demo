@@ -1,0 +1,23 @@
+-- applications (app_key|version|sha256-prefix)
+hr-leave|1.1.0|0f717f2b7f92
+it-helpdesk|1.1.0|fc97b12b319e
+-- application_versions
+hr-leave|1.1.0
+it-helpdesk|1.0.0
+it-helpdesk|1.1.0
+-- schema history
+1|t
+2|t
+3|t
+-- records per entity (count|md5 of id,version,data)
+category|4|3250486f4049c5c8f67ff9ef5dc3b2e7
+leaveRequest|70|69e19f30d0f62e258f2616e9535976f3
+ticket|432|189e005ccb5f5226689985c223412dec
+-- audit events per entity
+category|26
+leaveRequest|177
+ticket|632
+-- entity definitions
+hr-leave|leaveRequest
+it-helpdesk|category
+it-helpdesk|ticket
