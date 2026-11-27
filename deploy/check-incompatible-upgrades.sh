@@ -24,10 +24,11 @@ $mutation
 json.dump(m, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PY
   local out
+  local expected='Incompatible manifest[^"]*|must increase[^"]*|immutable[^"]*'
   out=$(ESM_MANIFEST_DIR="$WORK/$name" bash "$HERE/platform-stack.sh" migrate 2>&1)
   local code=$?
   local reason
-  reason=$(printf '%s' "$out" | grep -o 'Incompatible manifest[^"]*\|must increase[^"]*\|immutable[^"]*' | head -1)
+  reason=$(printf '%s' "$out" | grep -oE "${3:-$expected}" | head -1)
   if [ "$code" -ne 0 ] && [ -n "$reason" ]; then
     echo "REJECTED  $name: $reason"
   else
@@ -43,7 +44,7 @@ case_run ticket-field-changed  'm["entities"]["ticket"]["schema"]["properties"][
 case_run ticket-required-added 'm["entities"]["ticket"]["schema"]["properties"]["extra"] = {"type": "string", "maxLength": 10}; m["entities"]["ticket"]["schema"]["required"].append("extra")'
 case_run transition-removed    'del m["entities"]["ticket"]["workflow"]["transitions"]["reopen"]'
 case_run notbycreator-dropped  'del m["entities"]["ticket"]["workflow"]["transitions"]["start"]["notByCreator"]'
-case_run role-removed          'del m["roles"]["agent"]'
+case_run role-removed          'del m["roles"]["agent"]' 'undeclared role agent'
 case_run entity-removed        'del m["entities"]["category"]'
 
 echo "--- active version after all attempts:"
